@@ -147,23 +147,8 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   align-items: center;
   justify-content: center;
-  gap: 1.15rem;
-  background:
-    radial-gradient(circle at 30% 12%, rgba(255,255,255,0.95), transparent 22%),
-    radial-gradient(circle at 70% 82%, rgba(255,253,122,0.72), transparent 30%),
-    linear-gradient(135deg, #a2fc2b, #6cc800);
-}
-
-.boot-screen::before {
-  content: "";
-  position: absolute;
-  inset: 9%;
-  border: 1px solid rgba(255,255,255,0.34);
-  border-radius: var(--radius-main);
-  background: linear-gradient(135deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.64), 0 24px 70px rgba(0,0,0,0.22);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  background: #050505;
+  background-image: radial-gradient(circle at 50% -20%, #1a1a1a, #000 80%);
 }
 
 .boot-logo-wrap,
@@ -174,13 +159,26 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .boot-logo-wrap {
-  border-radius: 8px;
-  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.2));
+  width: 140px;
+  height: 140px;
+  filter: drop-shadow(0 0 20px rgba(255,255,255,0.1));
 }
 
-.boot-wordmark {
-  font-size: clamp(1.85rem, 10vw, 2.8rem);
-  line-height: 0.9;
+.boot-chrome-text {
+  position: relative;
+  display: inline-block;
+  font-family: 'Bungee', 'Outfit', sans-serif;
+  font-weight: 400;
+  line-height: 0.84;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: transparent;
+  isolation: isolate;
+  margin-top: 2rem;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(180deg, #ffffff 0%, #f7f9fa 14%, #dce2e6 30%, #ffffff 46%, #cfd7dd 62%, #a8b2ba 100%);
+  filter: drop-shadow(0 0 8px rgba(255,255,255,0.2));
 }
 
 

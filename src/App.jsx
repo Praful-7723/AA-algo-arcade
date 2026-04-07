@@ -377,7 +377,7 @@ export default function App() {
   }, [timerRunning]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setBooting(false), 1200);
+    const timeout = setTimeout(() => setBooting(false), 4000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -1298,23 +1298,6 @@ export default function App() {
   if (booting) {
     return (
       <div className="app-container boot-screen">
-        <LiquidChromeFilters />
-        <motion.div
-          className="boot-logo-wrap"
-          initial={{ scale: 0.86, opacity: 0, filter: 'blur(14px)' }}
-          animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-          transition={{ duration: 0.55, ease: 'easeOut' }}
-        >
-          <AlgoArcadeLogo />
-        </motion.div>
-        <motion.div
-          className="boot-wordmark"
-          initial={{ y: 12, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.18, duration: 0.45 }}
-        >
-          <ChromeText>ALGO ARCADE</ChromeText>
-        </motion.div>
         <PremiumLoader />
       </div>
     );

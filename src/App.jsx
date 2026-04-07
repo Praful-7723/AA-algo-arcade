@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Share2, ChevronRight, Activity, Flame, Settings2, RotateCcw, BrainCircuit, Flag, MousePointer2, Trophy, Timer, ChevronUp, ChevronDown, ChevronLeft } from 'lucide-react';
 import GithubButton from './components/ui/demo';
 import { SketchyToggle } from './components/SketchyToggle';
+import { PremiumLoader } from './components/ui/PremiumLoader';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import './index.css';
 
@@ -1314,11 +1315,7 @@ export default function App() {
         >
           <ChromeText>ALGO ARCADE</ChromeText>
         </motion.div>
-        <div className="boot-loader" aria-label="Loading Algo Arcade">
-          <span />
-          <span />
-          <span />
-        </div>
+        <PremiumLoader />
       </div>
     );
   }

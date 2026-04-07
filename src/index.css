@@ -866,15 +866,10 @@ h1, h2, h3, h4, h5, h6 {
 .room-inbox-message {
   position: relative;
   z-index: 20;
-  border: 1px solid rgba(255,255,255,0.28);
-  border-radius: var(--radius-main);
-  background:
-    linear-gradient(135deg, rgba(78, 0, 18, 0.72), rgba(174, 17, 43, 0.34)),
-    radial-gradient(circle at 14% -10%, rgba(255, 96, 116, 0.92), transparent 44%),
-    radial-gradient(circle at 112% 18%, rgba(255, 253, 122, 0.38), transparent 40%);
-  box-shadow: 0 18px 48px rgba(90, 0, 18, 0.36), inset 0 1px 0 rgba(255,255,255,0.36);
-  backdrop-filter: blur(22px) saturate(1.75);
-  -webkit-backdrop-filter: blur(22px) saturate(1.75);
+  border: 2px solid #210007;
+  border-radius: var(--radius-sm);
+  background: #b90f2f;
+  box-shadow: 0 7px 0 #210007, 0 16px 30px rgba(185, 15, 47, 0.28);
   color: #fff;
   margin: 0 0 0.65rem;
   overflow: hidden;
@@ -886,29 +881,23 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   inset: 0 auto 0 0;
   width: 6px;
-  background: linear-gradient(180deg, #ffb3bd, #ff244d, #4d0014);
+  background: #fffd7a;
 }
 
 .room-inbox-message.closed::before {
-  background: linear-gradient(180deg, #ffffff, #ff355d, #2b000d);
+  background: #111;
 }
 
 .room-inbox-message.waiting::before {
-  background: linear-gradient(180deg, #fffd7a, #ff4b6e, #4d0014);
+  background: var(--accent);
 }
 
 .room-inbox-message.closed {
-  background:
-    linear-gradient(135deg, rgba(47, 0, 14, 0.82), rgba(119, 0, 28, 0.52)),
-    radial-gradient(circle at 16% -12%, rgba(255, 83, 113, 0.9), transparent 42%),
-    radial-gradient(circle at 105% 12%, rgba(255, 253, 122, 0.34), transparent 44%);
+  background: #8f0d23;
 }
 
 .room-inbox-message.waiting {
-  background:
-    linear-gradient(135deg, rgba(77, 0, 19, 0.76), rgba(166, 11, 39, 0.44)),
-    radial-gradient(circle at 20% -16%, rgba(255, 253, 122, 0.48), transparent 42%),
-    radial-gradient(circle at 110% 18%, rgba(255, 53, 93, 0.82), transparent 44%);
+  background: #c51637;
 }
 
 .room-inbox-message strong,
@@ -929,7 +918,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .room-inbox-message p {
-  color: rgba(255,255,255,0.74);
+  color: rgba(255,255,255,0.84);
   font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.35;
@@ -942,7 +931,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .room-inbox-kicker,
 .room-countdown {
-  color: rgba(255,255,255,0.62);
+  color: rgba(255,255,255,0.7);
   display: inline-flex;
   font-size: 0.64rem;
   font-weight: 900;
@@ -951,7 +940,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .room-countdown {
-  border: 2px solid rgba(255,255,255,0.28);
+  border: 2px solid rgba(255,255,255,0.34);
   border-radius: var(--radius-pill);
   margin-top: 0.55rem;
   padding: 0.28rem 0.48rem;

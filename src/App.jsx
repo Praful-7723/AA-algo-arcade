@@ -471,7 +471,11 @@ export default function App() {
         },
         (payload) => {
           console.log('[Realtime] Room change:', payload);
-          fetchFriendRoom(friendRoom.id);
+          if (payload.new && payload.eventType === 'UPDATE') {
+            setFriendRoom(prev => ({ ...prev, ...payload.new }));
+          } else {
+            fetchFriendRoom(friendRoom.id);
+          }
         }
       )
       .on(
@@ -484,7 +488,17 @@ export default function App() {
         },
         (payload) => {
           console.log('[Realtime] Players change:', payload);
-          fetchFriendPlayers(friendRoom.id);
+          if (payload.eventType === 'INSERT') {
+            setFriendPlayers(prev => {
+              const existing = prev.find(p => p.player_id === payload.new.player_id);
+              if (existing) return prev.map(p => p.player_id === payload.new.player_id ? payload.new : p);
+              return [...prev, payload.new].sort((a,b) => new Date(a.joined_at) - new Date(b.joined_at));
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setFriendPlayers(prev => prev.map(p => p.player_id === payload.new.player_id ? payload.new : p));
+          } else {
+            fetchFriendPlayers(friendRoom.id);
+          }
         }
       )
       .on(
@@ -497,7 +511,14 @@ export default function App() {
         },
         (payload) => {
           console.log('[Realtime] Results change:', payload);
-          fetchFriendResults(friendRoom.id);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            setFriendResults(prev => {
+              const base = prev.filter(r => !(r.player_id === payload.new.player_id && r.level_index === payload.new.level_index));
+              return [...base, payload.new].sort((a, b) => a.time_ms - b.time_ms || a.faults - b.faults);
+            });
+          } else {
+            fetchFriendResults(friendRoom.id);
+          }
         }
       )
       .subscribe((status, err) => {

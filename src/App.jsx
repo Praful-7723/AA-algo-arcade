@@ -1439,11 +1439,16 @@ export default function App() {
              <ChromeText>{APP_NAME}</ChromeText>
            </h1>
          </motion.div>
-         <div className="flex flex-row items-center gap-2">
+         <div className="flex flex-row items-center gap-1">
+           {(!friendRoom || friendRoom.status === 'closed') && (
+             <button className="logo-trigger p-2 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity" style={{ color: '#111' }} type="button" onClick={() => watchAI('astar')} aria-label="Let AI Clear Sector">
+               <BrainCircuit size={24} strokeWidth={2.5} />
+             </button>
+           )}
            <button className="logo-trigger p-2 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity" style={{ color: '#111' }} type="button" onClick={() => setRestartPromptOpen(true)} aria-label="Restart Sector">
-             <RotateCcw size={24} strokeWidth={3} />
+             <RotateCcw size={24} strokeWidth={2.5} />
            </button>
-           <button className="logo-3d-small logo-trigger" type="button" onClick={() => setChallengeModalOpen(true)} aria-label="Open friend challenge">
+           <button className="logo-3d-small logo-trigger" style={{ marginLeft: '0.25rem' }} type="button" onClick={() => setChallengeModalOpen(true)} aria-label="Open friend challenge">
              <AlgoArcadeLogo compact />
            </button>
          </div>
@@ -1454,28 +1459,30 @@ export default function App() {
             <motion.div className="modal-overlay quit-overlay" style={{ zIndex: 9999 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
                 className="quit-card"
-                style={{ background: '#050505', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+                style={{ 
+                  background: 'rgba(25, 25, 25, 0.45)', 
+                  backdropFilter: 'blur(24px) saturate(150%)',
+                  WebkitBackdropFilter: 'blur(24px) saturate(150%)',
+                  border: '1px solid rgba(255,255,255,0.12)', 
+                  boxShadow: '0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)',
+                  color: 'white' 
+                }}
                 initial={{ y: 24, opacity: 0, scale: 0.96 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
                 exit={{ y: 24, opacity: 0, scale: 0.96 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-                  <RotateCcw size={32} color="#a2fc2b" />
-                  <h2 style={{ color: '#fff', fontSize: '1.5rem', marginTop: '0.5rem' }}>Restart Sector?</h2>
+                  <RotateCcw size={32} color="#a2fc2b" style={{ filter: 'drop-shadow(0 0 12px rgba(162,252,43,0.4))' }} />
+                  <h2 style={{ color: '#fff', fontSize: '1.5rem', marginTop: '0.5rem', letterSpacing: '-0.02em' }}>Restart Sector?</h2>
                   <p style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', fontSize: '0.85rem' }}>
                     Resetting clears your progress here. You'll stay in Sector {levelIndex + 1}.
                   </p>
                 </div>
                 <div className="quit-actions" style={{ gap: '0.65rem' }}>
-                  <button className="btn" style={{ background: 'transparent', border: '2px solid rgba(162, 252, 43, 0.4)', color: '#A2FC2B' }} type="button" onClick={() => { setRestartPromptOpen(false); resetMatch(); }}>
+                  <button className="btn" style={{ background: 'rgba(162, 252, 43, 0.1)', border: '1px solid rgba(162, 252, 43, 0.4)', color: '#A2FC2B', backdropFilter: 'blur(8px)' }} type="button" onClick={() => { setRestartPromptOpen(false); resetMatch(); }}>
                     Restart Now
                   </button>
-                  {(!friendRoom || friendRoom.status === 'closed') && (
-                     <button className="btn" style={{ background: '#A2FC2B', color: '#000' }} type="button" onClick={() => { setRestartPromptOpen(false); watchAI('astar'); }}>
-                       Let AI Clear Sector
-                     </button>
-                  )}
-                  <button className="btn btn-outline" style={{ border: '2px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }} type="button" onClick={() => setRestartPromptOpen(false)}>
+                  <button className="btn btn-outline" style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.05)' }} type="button" onClick={() => setRestartPromptOpen(false)}>
                     Cancel
                   </button>
                 </div>

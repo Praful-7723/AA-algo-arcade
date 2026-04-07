@@ -454,11 +454,13 @@ export default function App() {
 
   useEffect(() => {
     if (!supabase || !friendRoom?.id) return undefined;
+    console.log(`[Realtime] Initializing sync for room ${friendRoom.id}...`);
     fetchFriendResults(friendRoom.id);
     fetchFriendPlayers(friendRoom.id);
     fetchFriendRoom(friendRoom.id);
+    
     const channel = supabase
-      .channel(`challenge-room-${friendRoom.id}`)
+      .channel(`room-${friendRoom.id}`)
       .on(
         'postgres_changes',
         {
@@ -467,7 +469,10 @@ export default function App() {
           table: 'challenge_rooms',
           filter: `id=eq.${friendRoom.id}`,
         },
-        () => fetchFriendRoom(friendRoom.id)
+        (payload) => {
+          console.log('[Realtime] Room change:', payload);
+          fetchFriendRoom(friendRoom.id);
+        }
       )
       .on(
         'postgres_changes',
@@ -477,7 +482,10 @@ export default function App() {
           table: 'challenge_players',
           filter: `room_id=eq.${friendRoom.id}`,
         },
-        () => fetchFriendPlayers(friendRoom.id)
+        (payload) => {
+          console.log('[Realtime] Players change:', payload);
+          fetchFriendPlayers(friendRoom.id);
+        }
       )
       .on(
         'postgres_changes',
@@ -487,11 +495,17 @@ export default function App() {
           table: 'challenge_results',
           filter: `room_id=eq.${friendRoom.id}`,
         },
-        () => fetchFriendResults(friendRoom.id)
+        (payload) => {
+          console.log('[Realtime] Results change:', payload);
+          fetchFriendResults(friendRoom.id);
+        }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log(`[Realtime] Subscription status: ${status}`, err || '');
+      });
 
     return () => {
+      console.log(`[Realtime] Tearing down sync for room ${friendRoom.id}...`);
       supabase.removeChannel(channel);
     };
   }, [friendRoom?.id]);

@@ -1435,9 +1435,20 @@ export default function App() {
   const maxOverallSectors = Math.max(1, ...overallChallengeResults.map((player) => player.sectors));
   const activeRoomNotice = roomNotice && friendModeActive;
 
+  const renderDebugPanel = () => {
+    if (!friendModeActive) return null;
+    return (
+      <div className="fixed bottom-0 left-0 bg-black/80 text-green-400 text-[10px] p-2 z-50 font-mono pointer-events-none max-w-[200px] text-left break-all">
+        <div>DB Players: {friendPlayers.length} ({friendPlayers.map(p => p.player_label).join(',')})</div>
+        <div>Last Poll: {new Date().toLocaleTimeString()}</div>
+      </div>
+    );
+  };
+
   return (
     <div className="app-container game-screen">
       <LiquidChromeFilters />
+      {renderDebugPanel()}
       <header className="header" style={{ opacity: isHeatmapViewing ? 0.3 : 1, transition: 'opacity 0.3s' }}>
          <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={levelIndex} className="flex-col" style={{ alignItems: 'flex-start' }}>
            <div className="flex-row" style={{ gap: '0.5rem', marginBottom: '0.25rem' }}>

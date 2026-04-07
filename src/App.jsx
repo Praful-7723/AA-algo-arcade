@@ -469,13 +469,9 @@ export default function App() {
           table: 'challenge_rooms',
           filter: `id=eq.${friendRoom.id}`,
         },
-        (payload) => {
-          console.log('[Realtime] Room change:', payload);
-          if (payload.new && payload.eventType === 'UPDATE') {
-            setFriendRoom(prev => ({ ...prev, ...payload.new }));
-          } else {
-            fetchFriendRoom(friendRoom.id);
-          }
+        () => {
+          console.log('[Realtime] Room change detected');
+          fetchFriendRoom(friendRoom.id);
         }
       )
       .on(
@@ -486,19 +482,9 @@ export default function App() {
           table: 'challenge_players',
           filter: `room_id=eq.${friendRoom.id}`,
         },
-        (payload) => {
-          console.log('[Realtime] Players change:', payload);
-          if (payload.eventType === 'INSERT') {
-            setFriendPlayers(prev => {
-              const existing = prev.find(p => p.player_id === payload.new.player_id);
-              if (existing) return prev.map(p => p.player_id === payload.new.player_id ? payload.new : p);
-              return [...prev, payload.new].sort((a,b) => new Date(a.joined_at) - new Date(b.joined_at));
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setFriendPlayers(prev => prev.map(p => p.player_id === payload.new.player_id ? payload.new : p));
-          } else {
-            fetchFriendPlayers(friendRoom.id);
-          }
+        () => {
+          console.log('[Realtime] Players change detected');
+          fetchFriendPlayers(friendRoom.id);
         }
       )
       .on(
@@ -509,24 +495,24 @@ export default function App() {
           table: 'challenge_results',
           filter: `room_id=eq.${friendRoom.id}`,
         },
-        (payload) => {
-          console.log('[Realtime] Results change:', payload);
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            setFriendResults(prev => {
-              const base = prev.filter(r => !(r.player_id === payload.new.player_id && r.level_index === payload.new.level_index));
-              return [...base, payload.new].sort((a, b) => a.time_ms - b.time_ms || a.faults - b.faults);
-            });
-          } else {
-            fetchFriendResults(friendRoom.id);
-          }
+        () => {
+          console.log('[Realtime] Results change detected');
+          fetchFriendResults(friendRoom.id);
         }
       )
       .subscribe((status, err) => {
         console.log(`[Realtime] Subscription status: ${status}`, err || '');
       });
 
+    const syncInterval = setInterval(() => {
+      fetchFriendRoom(friendRoom.id);
+      fetchFriendPlayers(friendRoom.id);
+      fetchFriendResults(friendRoom.id);
+    }, 3500);
+
     return () => {
       console.log(`[Realtime] Tearing down sync for room ${friendRoom.id}...`);
+      clearInterval(syncInterval);
       supabase.removeChannel(channel);
     };
   }, [friendRoom?.id]);

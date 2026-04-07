@@ -143,6 +143,77 @@ h1, h2, h3, h4, h5, h6 {
   display: block;
 }
 
+.boot-screen {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  gap: 1.15rem;
+  background:
+    radial-gradient(circle at 30% 12%, rgba(255,255,255,0.95), transparent 22%),
+    radial-gradient(circle at 70% 82%, rgba(255,253,122,0.72), transparent 30%),
+    linear-gradient(135deg, #a2fc2b, #6cc800);
+}
+
+.boot-screen::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 1px solid rgba(255,255,255,0.34);
+  border-radius: var(--radius-main);
+  background: linear-gradient(135deg, rgba(255,255,255,0.24), rgba(255,255,255,0.06));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.64), 0 24px 70px rgba(0,0,0,0.22);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+}
+
+.boot-logo-wrap,
+.boot-wordmark,
+.boot-loader {
+  position: relative;
+  z-index: 1;
+}
+
+.boot-logo-wrap {
+  border-radius: 8px;
+  filter: drop-shadow(0 18px 32px rgba(0,0,0,0.2));
+}
+
+.boot-wordmark {
+  font-size: clamp(1.85rem, 10vw, 2.8rem);
+  line-height: 0.9;
+}
+
+.boot-loader {
+  display: flex;
+  gap: 0.42rem;
+  margin-top: 0.2rem;
+}
+
+.boot-loader span {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #111;
+  border-radius: 50%;
+  background: #fff;
+  animation: bootPulse 0.9s ease-in-out infinite;
+  box-shadow: 0 6px 0 rgba(0,0,0,0.16);
+}
+
+.boot-loader span:nth-child(2) {
+  animation-delay: 0.12s;
+  background: var(--accent);
+}
+
+.boot-loader span:nth-child(3) {
+  animation-delay: 0.24s;
+  background: var(--primary);
+}
+
+@keyframes bootPulse {
+  0%, 100% { transform: translateY(0) scale(0.9); opacity: 0.58; }
+  50% { transform: translateY(-8px) scale(1.08); opacity: 1; }
+}
+
 .aa-logo {
   display: block;
   width: 102px;
@@ -795,16 +866,16 @@ h1, h2, h3, h4, h5, h6 {
 .room-inbox-message {
   position: relative;
   z-index: 20;
-  border: 1px solid rgba(255,255,255,0.48);
+  border: 1px solid rgba(255,255,255,0.28);
   border-radius: var(--radius-main);
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.52), rgba(255,255,255,0.2)),
-    radial-gradient(circle at 18% -12%, rgba(255,253,122,0.88), transparent 46%),
-    radial-gradient(circle at 108% 20%, rgba(162,252,43,0.72), transparent 44%);
-  box-shadow: 0 14px 38px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.72);
-  backdrop-filter: blur(18px) saturate(1.55);
-  -webkit-backdrop-filter: blur(18px) saturate(1.55);
-  color: #111;
+    linear-gradient(135deg, rgba(78, 0, 18, 0.72), rgba(174, 17, 43, 0.34)),
+    radial-gradient(circle at 14% -10%, rgba(255, 96, 116, 0.92), transparent 44%),
+    radial-gradient(circle at 112% 18%, rgba(255, 253, 122, 0.38), transparent 40%);
+  box-shadow: 0 18px 48px rgba(90, 0, 18, 0.36), inset 0 1px 0 rgba(255,255,255,0.36);
+  backdrop-filter: blur(22px) saturate(1.75);
+  -webkit-backdrop-filter: blur(22px) saturate(1.75);
+  color: #fff;
   margin: 0 0 0.65rem;
   overflow: hidden;
   padding: 0.8rem 0.9rem;
@@ -815,29 +886,29 @@ h1, h2, h3, h4, h5, h6 {
   position: absolute;
   inset: 0 auto 0 0;
   width: 6px;
-  background: linear-gradient(180deg, #35d8ff, #a2fc2b);
+  background: linear-gradient(180deg, #ffb3bd, #ff244d, #4d0014);
 }
 
 .room-inbox-message.closed::before {
-  background: linear-gradient(180deg, #fffd7a, #ff7a3d, #111);
+  background: linear-gradient(180deg, #ffffff, #ff355d, #2b000d);
 }
 
 .room-inbox-message.waiting::before {
-  background: linear-gradient(180deg, #fffd7a, #a2fc2b);
+  background: linear-gradient(180deg, #fffd7a, #ff4b6e, #4d0014);
 }
 
 .room-inbox-message.closed {
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18)),
-    radial-gradient(circle at 16% -12%, rgba(255,253,122,0.9), transparent 42%),
-    radial-gradient(circle at 105% 12%, rgba(255,122,61,0.7), transparent 46%);
+    linear-gradient(135deg, rgba(47, 0, 14, 0.82), rgba(119, 0, 28, 0.52)),
+    radial-gradient(circle at 16% -12%, rgba(255, 83, 113, 0.9), transparent 42%),
+    radial-gradient(circle at 105% 12%, rgba(255, 253, 122, 0.34), transparent 44%);
 }
 
 .room-inbox-message.waiting {
   background:
-    linear-gradient(135deg, rgba(255,255,255,0.54), rgba(255,255,255,0.22)),
-    radial-gradient(circle at 20% -16%, rgba(255,253,122,0.96), transparent 44%),
-    radial-gradient(circle at 110% 18%, rgba(162,252,43,0.78), transparent 44%);
+    linear-gradient(135deg, rgba(77, 0, 19, 0.76), rgba(166, 11, 39, 0.44)),
+    radial-gradient(circle at 20% -16%, rgba(255, 253, 122, 0.48), transparent 42%),
+    radial-gradient(circle at 110% 18%, rgba(255, 53, 93, 0.82), transparent 44%);
 }
 
 .room-inbox-message strong,
@@ -858,7 +929,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .room-inbox-message p {
-  color: rgba(0,0,0,0.62);
+  color: rgba(255,255,255,0.74);
   font-size: 0.82rem;
   font-weight: 700;
   line-height: 1.35;
@@ -871,7 +942,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .room-inbox-kicker,
 .room-countdown {
-  color: rgba(0,0,0,0.48);
+  color: rgba(255,255,255,0.62);
   display: inline-flex;
   font-size: 0.64rem;
   font-weight: 900;
@@ -880,7 +951,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .room-countdown {
-  border: 2px solid rgba(0,0,0,0.16);
+  border: 2px solid rgba(255,255,255,0.28);
   border-radius: var(--radius-pill);
   margin-top: 0.55rem;
   padding: 0.28rem 0.48rem;
@@ -913,6 +984,10 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
   line-height: 1;
   margin-top: 0.25rem;
+}
+
+.quit-card .room-inbox-kicker {
+  color: rgba(0,0,0,0.48);
 }
 
 .quit-card p {
@@ -1075,6 +1150,79 @@ h1, h2, h3, h4, h5, h6 {
   color: rgba(0,0,0,0.52);
   font-size: 0.68rem;
   font-weight: 800;
+}
+
+.ai-compare-card {
+  border: 2px solid rgba(0,0,0,0.88);
+  border-radius: var(--radius-main);
+  background:
+    linear-gradient(135deg, rgba(17,17,17,0.96), rgba(38,48,35,0.92)),
+    radial-gradient(circle at 16% 0%, rgba(162,252,43,0.42), transparent 42%);
+  box-shadow: 0 10px 0 rgba(0,0,0,0.18), 0 18px 40px rgba(0,0,0,0.16);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem;
+}
+
+.ai-compare-card strong {
+  display: block;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-top: 0.15rem;
+}
+
+.ai-compare-card p {
+  color: rgba(255,255,255,0.62);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-top: 0.25rem;
+}
+
+.ai-compare-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.ai-compare-actions .btn {
+  border: 2px solid rgba(255,255,255,0.2);
+  padding: 0.62rem 0.5rem;
+}
+
+.ai-preview-footer {
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.34);
+  border-radius: var(--radius-pill);
+  background:
+    linear-gradient(135deg, rgba(17,17,17,0.72), rgba(34,45,32,0.54)),
+    radial-gradient(circle at 10% 0%, rgba(162,252,43,0.42), transparent 46%);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  color: #fff;
+  display: flex;
+  gap: 0.65rem;
+  justify-content: space-between;
+  padding: 0.45rem 0.5rem 0.45rem 0.85rem;
+  width: 100%;
+}
+
+.ai-preview-footer span {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ai-preview-footer .btn {
+  font-size: 0.78rem;
+  padding: 0.55rem 0.8rem;
 }
 
 .pill-badge {

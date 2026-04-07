@@ -314,6 +314,8 @@ export default function App() {
   
   const [aiVisited, setAiVisited] = useState(new Map());
   const [aiPath, setAiPath] = useState([]);
+  const [aiPreviewAlgo, setAiPreviewAlgo] = useState(null);
+  const aiPreviewIntervalRef = useRef(null);
   
   // Heatmap State
   const [heatMap, setHeatMap] = useState({});
@@ -344,6 +346,7 @@ export default function App() {
   const [roomNotice, setRoomNotice] = useState(null);
   const [roomExitCountdown, setRoomExitCountdown] = useState(null);
   const [quitPromptOpen, setQuitPromptOpen] = useState(false);
+  const [booting, setBooting] = useState(true);
   const closedRoomNoticeRef = useRef(null);
   const allowBrowserExitRef = useRef(false);
   const handleBackRef = useRef(null);
@@ -371,6 +374,15 @@ export default function App() {
     if (timerRunning) interval = setInterval(() => setTimeMs(t => t + 100), 100);
     return () => clearInterval(interval);
   }, [timerRunning]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setBooting(false), 1200);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => () => {
+    if (aiPreviewIntervalRef.current) clearInterval(aiPreviewIntervalRef.current);
+  }, []);
 
   // Keyboard / D-pad movement
   const movePlayer = useCallback((dr, dc) => {
@@ -684,6 +696,18 @@ export default function App() {
     }
   }, [clearFriendMode, friendRoom, playerId, showRoomNotice]);
 
+  const closeAIPreview = useCallback(() => {
+    if (aiPreviewIntervalRef.current) {
+      clearInterval(aiPreviewIntervalRef.current);
+      aiPreviewIntervalRef.current = null;
+    }
+    setTimerRunning(false);
+    setAiPreviewAlgo(null);
+    setAiVisited(new Map());
+    setAiPath([]);
+    setGameState('user-done');
+  }, []);
+
   const handleAppBack = useCallback(() => {
     if (quitPromptOpen) {
       forceQuitApp();
@@ -697,6 +721,11 @@ export default function App() {
 
     if (roomNotice?.tone === 'waiting') {
       setRoomNotice(null);
+      return;
+    }
+
+    if (gameState.includes('ai')) {
+      closeAIPreview();
       return;
     }
 
@@ -719,7 +748,7 @@ export default function App() {
     }
 
     setQuitPromptOpen(true);
-  }, [appState, challengeModalOpen, forceQuitApp, friendRoom?.status, gameState, leaveChallenge, quitPromptOpen, roomNotice?.tone]);
+  }, [appState, challengeModalOpen, closeAIPreview, forceQuitApp, friendRoom?.status, gameState, leaveChallenge, quitPromptOpen, roomNotice?.tone]);
 
   useEffect(() => {
     handleBackRef.current = handleAppBack;
@@ -1108,6 +1137,11 @@ export default function App() {
 
   const watchAI = (algo) => {
     AudioEngine.init();
+    if (aiPreviewIntervalRef.current) {
+      clearInterval(aiPreviewIntervalRef.current);
+      aiPreviewIntervalRef.current = null;
+    }
+    setAiPreviewAlgo(algo);
     setTimeMs(0); 
     setTimerRunning(true);
     setGameState(`ai-playing`);
@@ -1170,8 +1204,12 @@ export default function App() {
     const interval = setInterval(() => {
       if (i >= sequence.length) {
         clearInterval(interval);
+        aiPreviewIntervalRef.current = null;
         setTimerRunning(false); 
-        setTimeout(() => setGameState('user-done'), 500); 
+        setTimeout(() => {
+          setAiPreviewAlgo(null);
+          setGameState('user-done');
+        }, 500); 
         return;
       }
       const step = sequence[i];
@@ -1191,6 +1229,7 @@ export default function App() {
       }
       i++;
     }, 40); 
+    aiPreviewIntervalRef.current = interval;
   };
 
   const nextLevel = () => {
@@ -1253,6 +1292,36 @@ export default function App() {
   };
 
   const formatTime = (ms) => (ms / 1000).toFixed(1) + "s";
+
+
+  if (booting) {
+    return (
+      <div className="app-container boot-screen">
+        <LiquidChromeFilters />
+        <motion.div
+          className="boot-logo-wrap"
+          initial={{ scale: 0.86, opacity: 0, filter: 'blur(14px)' }}
+          animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 0.55, ease: 'easeOut' }}
+        >
+          <AlgoArcadeLogo />
+        </motion.div>
+        <motion.div
+          className="boot-wordmark"
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.18, duration: 0.45 }}
+        >
+          <ChromeText>ALGO ARCADE</ChromeText>
+        </motion.div>
+        <div className="boot-loader" aria-label="Loading Algo Arcade">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    );
+  }
 
 
   // --- WELCOME SCREEN ---
@@ -1557,6 +1626,13 @@ export default function App() {
            <button className="btn btn-dark" style={{ padding: '0.75rem 1.5rem' }} onClick={() => { setGameState('user-done'); setHeatmapMode('human'); }}>
              Close Heatmap
            </button>
+        ) : gameState.includes('ai') && friendModeActive ? (
+           <div className="ai-preview-footer">
+             <span><BrainCircuit size={14} /> {aiPreviewAlgo || 'AI'} live route</span>
+             <button className="btn btn-dark" type="button" onClick={closeAIPreview}>
+               Close Preview
+             </button>
+           </div>
         ) : gameState === 'playing' && !useDpad ? (
            <p className="text-muted text-sm font-medium">
              {friendModeActive ? `${friendRoom.mode === 'global' ? 'Global' : 'Sector'} challenge active` : controlMode === 'drag' ? "Swipe across the grid" : "Tap to step"}
@@ -1653,6 +1729,18 @@ export default function App() {
                             </div>
                           );
                         })}
+                      </div>
+                      <div className="ai-compare-card">
+                        <div>
+                          <span className="room-inbox-kicker">AI Replay</span>
+                          <strong>Compare your route</strong>
+                          <p>Preview a live algorithm solution and see whether your choices beat the machine.</p>
+                        </div>
+                        <div className="ai-compare-actions">
+                          <button className="btn btn-dark flex-1" type="button" onClick={() => watchAI('DFS')}>DFS</button>
+                          <button className="btn btn-dark flex-1" type="button" onClick={() => watchAI('BFS')}>BFS</button>
+                          <button className="btn btn-primary flex-1" type="button" onClick={() => watchAI('A*')}>A*</button>
+                        </div>
                       </div>
                       <p className="challenge-message">{challengeStatusText}</p>
                     </>

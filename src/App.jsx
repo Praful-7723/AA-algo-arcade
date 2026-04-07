@@ -415,6 +415,7 @@ export default function App() {
       .from('challenge_results')
       .select('*')
       .eq('room_id', roomId)
+      .neq('player_id', `cb_${Date.now()}_${Math.random()}`)
       .order('time_ms', { ascending: true })
       .order('faults', { ascending: true });
     if (error) {
@@ -430,6 +431,7 @@ export default function App() {
       .from('challenge_players')
       .select('*')
       .eq('room_id', roomId)
+      .neq('player_id', `cb_${Date.now()}_${Math.random()}`)
       .order('joined_at', { ascending: true });
     if (error) {
       setChallengeMessage(error.message);
@@ -444,6 +446,7 @@ export default function App() {
       .from('challenge_rooms')
       .select('*')
       .eq('id', roomId)
+      .neq('status', `cb_${Date.now()}_${Math.random()}`)
       .maybeSingle();
     if (error) {
       setChallengeMessage(error.message);

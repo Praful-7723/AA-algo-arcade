@@ -1,63 +1,110 @@
 'use client';
 import React, { useState } from 'react';
-import { Github, Star } from 'lucide-react';
 import { Liquid } from './button-1';
 
 const COLORS = {
   color1: '#FFFFFF',
-  color2: '#1E10C5',
-  color3: '#9089E2',
+  color2: '#A2FC2B',
+  color3: '#C2FC6A',
   color4: '#FCFCFE',
   color5: '#F9F9FD',
-  color6: '#B2B8E7',
-  color7: '#0E2DCB',
-  color8: '#0017E9',
-  color9: '#4743EF',
-  color10: '#7D7BF4',
-  color11: '#0B06FC',
-  color12: '#C5C1EA',
-  color13: '#1403DE',
-  color14: '#B6BAF6',
-  color15: '#C1BEEB',
-  color16: '#290ECB',
-  color17: '#3F4CC0',
+  color6: '#E1FC2B',
+  color7: '#8DE814',
+  color8: '#6CC800',
+  color9: '#9CF522',
+  color10: '#FFFD7A',
+  color11: '#5AB800',
+  color12: '#D8FE9B',
+  color13: '#7AE208',
+  color14: '#E6FFAD',
+  color15: '#EBFDC5',
+  color16: '#FFF033',
+  color17: '#469100',
 };
 
 const GitHubButton = ({ onClick }) => {
   const [isHovered, setIsHovered] = useState(false);
   return (
-    <div className="flex justify-center" onClick={onClick}>
+    <div style={{ display: 'flex', justifyContent: 'center' }} onClick={onClick}>
       <button
         type="button"
-        className="relative inline-block sm:w-36 w-14 h-[2.7em] mx-auto group dark:bg-black bg-white dark:border-white border-black border-2 rounded-lg">
-        <div className="absolute w-[112.81%] h-[128.57%] top-[8.57%] left-1/2 -translate-x-1/2 filter blur-[19px] opacity-70">
-          <span className="absolute inset-0 rounded-lg bg-[#d9d9d9] filter blur-[6.5px]"></span>
-          <div className="relative w-full h-full overflow-hidden rounded-lg">
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          width: '16rem',
+          height: '4.5em',
+          margin: '0 auto',
+          background: '#000',
+          border: '2px solid #000',
+          borderRadius: '9999px',
+          overflow: 'hidden',
+          cursor: 'pointer',
+          padding: 0,
+        }}>
+        {/* Outer glow behind button */}
+        <div style={{
+          position: 'absolute',
+          width: '112.81%',
+          height: '128.57%',
+          top: '8.57%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          filter: 'blur(19px)',
+          opacity: 0.7,
+        }}>
+          <span style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '9999px',
+            background: '#d9d9d9',
+            filter: 'blur(6.5px)',
+          }} />
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            borderRadius: '9999px',
+          }}>
             <Liquid isHovered={isHovered} colors={COLORS} />
           </div>
         </div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[40%] w-[92.23%] h-[112.85%] rounded-lg bg-[#010128] filter blur-[7.3px]"></div>
-        <div className="relative w-full h-full overflow-hidden rounded-lg">
-          <span className="absolute inset-0 rounded-lg bg-[#d9d9d9]"></span>
-          <span className="absolute inset-0 rounded-lg bg-black"></span>
+        {/* Liquid animated surface */}
+        <div style={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          borderRadius: '9999px',
+        }}>
+          <span style={{ position: 'absolute', inset: 0, borderRadius: '9999px', background: '#d9d9d9' }} />
+          <span style={{ position: 'absolute', inset: 0, borderRadius: '9999px', background: '#000' }} />
           <Liquid isHovered={isHovered} colors={COLORS} />
-          {[1, 2, 3, 4, 5].map((i) => (
-            <span
-              key={i}
-              className={`absolute inset-0 rounded-lg border-solid border-[3px] border-gradient-to-b from-transparent to-white mix-blend-overlay filter ${i <= 2 ? 'blur-[3px]' : i === 3 ? 'blur-[5px]' : 'blur-[4px]'}`}></span>
-          ))}
-          <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[40%] w-[70.8%] h-[42.85%] rounded-lg filter blur-[15px] bg-[#006]"></span>
         </div>
+        {/* Clean text overlay — NO shadow, NO blur, NO dark box */}
         <div
-          className="absolute inset-0 rounded-lg bg-transparent cursor-pointer"
-          aria-label="Get Started"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '9999px',
+            background: 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+          }}
+          aria-label="Start Game"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}>
-          <span className="flex items-center justify-between px-4 gap-2 h-full rounded-lg group-hover:text-yellow-400 text-white text-xl font-semibold tracking-wide whitespace-nowrap">
-            <Star className="group-hover:fill-yellow-400 fill-white w-6 h-6 flex-shrink-0 sm:inline-block hidden" />
-            <Github className="sm:hidden inline-block group-hover:fill-yellow-400 fill-white w-6 h-6 flex-shrink-0" />
-            <span className="sm:inline-block hidden">Github</span>
-          </span>
+          <span style={{
+            color: 'rgba(255,255,255,0.95)',
+            fontSize: '1.75rem',
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: 900,
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+          }}>START</span>
         </div>
       </button>
     </div>

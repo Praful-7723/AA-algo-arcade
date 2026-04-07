@@ -1,9 +1,186 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Zap, Box, Share2, Target, Crosshair, ChevronRight, Check, AlertCircle, Maximize2, SkipForward, Activity, Flame, Skull, Settings2, RotateCcw, Play, BrainCircuit, Flag, MousePointer2, Trophy, Timer } from 'lucide-react';
+import { Zap, Share2, ChevronRight, Activity, Flame, Settings2, RotateCcw, BrainCircuit, Flag, MousePointer2, Trophy, Timer, ChevronUp, ChevronDown, ChevronLeft } from 'lucide-react';
+import GithubButton from './components/ui/demo';
 import { SketchyToggle } from './components/SketchyToggle';
-import { GithubButton } from './components/GithubButton';
+import { isSupabaseConfigured, supabase } from './lib/supabase';
 import './index.css';
+
+const APP_NAME = 'ALGO ARCADE';
+const MotionSpan = motion.span;
+const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const normalizeRoomCode = (value) => value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 6);
+
+const generateRoomCode = () => Array.from({ length: 6 }, () => (
+  ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)]
+)).join('');
+
+const getOrCreatePlayerId = () => {
+  const storageKey = 'algo-arcade-player-id';
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing) return existing;
+  const id = `player-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
+  window.localStorage.setItem(storageKey, id);
+  return id;
+};
+
+const getOrCreatePlayerLabel = () => {
+  const storageKey = 'algo-arcade-player-label';
+  const existing = window.localStorage.getItem(storageKey);
+  if (existing) return existing;
+  const label = `Player ${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+  window.localStorage.setItem(storageKey, label);
+  return label;
+};
+
+const sanitizePlayerName = (value) => {
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  return trimmed.slice(0, 16) || getOrCreatePlayerLabel();
+};
+
+const summarizeResults = (players, results) => players
+  .filter((player) => player.active || results.some((result) => result.player_id === player.player_id))
+  .map((player) => {
+    const playerResults = results.filter((result) => result.player_id === player.player_id);
+    const totals = playerResults.reduce((acc, result) => ({
+      sectors: acc.sectors + 1,
+      timeMs: acc.timeMs + result.time_ms,
+      faults: acc.faults + result.faults,
+      pathLength: acc.pathLength + result.path_length,
+    }), { sectors: 0, timeMs: 0, faults: 0, pathLength: 0 });
+    return { ...player, ...totals };
+  })
+  .sort((a, b) => b.sectors - a.sectors || a.timeMs - b.timeMs || a.faults - b.faults || a.pathLength - b.pathLength);
+
+const joinNames = (names) => {
+  if (names.length === 0) return 'the room';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+};
+
+function LiquidChromeFilters() {
+  return (
+    <svg aria-hidden="true" className="liquid-filter-stage" focusable="false">
+      <defs>
+        <filter id="algo-liquid-metal">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" seed="7">
+            <animate attributeName="baseFrequency" dur="9s" values="0.012;0.024;0.012" repeatCount="indefinite" />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="14" />
+        </filter>
+      </defs>
+    </svg>
+  );
+}
+
+function ChromeText({ children, className = '' }) {
+  return (
+    <span className={`chrome-text ${className}`}>
+      <span className="chrome-text__depth" aria-hidden="true">{children}</span>
+      <span className="chrome-text__rim" aria-hidden="true">{children}</span>
+      <span className="chrome-text__liquid" aria-hidden="true">{children}</span>
+      <span className="chrome-text__sharp">{children}</span>
+      <MotionSpan
+        className="chrome-text__shine"
+        aria-hidden="true"
+        animate={{ backgroundPosition: ['180% 0', '-180% 0'] }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: 'linear' }}
+      >
+        {children}
+      </MotionSpan>
+    </span>
+  );
+}
+
+function AlgoArcadeLogo({ compact = false }) {
+  const idSuffix = compact ? 'small' : 'large';
+  const chromeId = `aa-chrome-${idSuffix}`;
+  const accentId = `aa-accent-${idSuffix}`;
+  const glowId = `aa-glow-${idSuffix}`;
+
+  return (
+    <svg
+      className={compact ? 'aa-logo aa-logo--small' : 'aa-logo'}
+      viewBox="0 0 112 112"
+      role="img"
+      aria-label="Algo Arcade AA logo"
+    >
+      <defs>
+        <linearGradient id={chromeId} x1="22" y1="18" x2="92" y2="96" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.16" stopColor="#aeb8bf" />
+          <stop offset="0.32" stopColor="#f9fbfc" />
+          <stop offset="0.52" stopColor="#707a82" />
+          <stop offset="0.72" stopColor="#dfe5e9" />
+          <stop offset="1" stopColor="#ffffff" />
+        </linearGradient>
+        <linearGradient id={accentId} x1="22" y1="70" x2="90" y2="42" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#6cc800" />
+          <stop offset="0.5" stopColor="#a2fc2b" />
+          <stop offset="1" stopColor="#fffd7a" />
+        </linearGradient>
+        <filter id={glowId} x="-35%" y="-35%" width="170%" height="170%">
+          <feGaussianBlur stdDeviation="2.4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g>
+        <path
+          d="M15 89C24 62 32 39 43 18C54 39 62 62 71 89"
+          stroke="#101210"
+          strokeWidth="17"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M41 89C50 62 58 39 69 18C80 39 88 62 97 89"
+          stroke="#101210"
+          strokeWidth="17"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M15 89C24 62 32 39 43 18C54 39 62 62 71 89"
+          stroke={`url(#${chromeId})`}
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M41 89C50 62 58 39 69 18C80 39 88 62 97 89"
+          stroke={`url(#${chromeId})`}
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M29 64C38 56 48 56 56 64C64 72 75 72 86 64"
+          stroke="#101210"
+          strokeWidth="11"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M29 64C38 56 48 56 56 64C64 72 75 72 86 64"
+          stroke={`url(#${accentId})`}
+          strokeWidth="6"
+          strokeLinecap="round"
+          fill="none"
+          filter={`url(#${glowId})`}
+        />
+        <path d="M24 31C30 24 35 19 43 14" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.58" />
+        <path d="M76 28C81 36 85 47 90 61" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" opacity="0.36" />
+        <circle cx="29" cy="64" r="5" fill="#a2fc2b" stroke="#101210" strokeWidth="1.8" />
+        <circle cx="56" cy="64" r="5" fill="#fffd7a" stroke="#101210" strokeWidth="1.8" />
+        <circle cx="86" cy="64" r="5" fill="#a2fc2b" stroke="#101210" strokeWidth="1.8" />
+      </g>
+    </svg>
+  );
+}
 
 // --- AUDIO ENGINE ---
 const AudioEngine = (() => {
@@ -30,7 +207,9 @@ const AudioEngine = (() => {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + duration);
-    } catch(e) {}
+    } catch {
+      return;
+    }
   };
 
   return {
@@ -71,7 +250,7 @@ const mulberry32 = (a) => {
 }
 let randomFn = Math.random; 
 const setMazeSeed = (seedStr) => {
-   const val = cyrb128(seedStr + "NeuralSalt"); // Added salt for dynamic feeling
+   const val = cyrb128(seedStr + "NeuralSalt");
    randomFn = mulberry32(val);
 };
 const generateRandomSeed = () => Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -103,19 +282,22 @@ const generateMaze = (size) => {
 
 const STATIC_LEVELS = [
   {
-    name: 'Sector 1 (Intro)', size: 5,
+    name: 'Sector 1', size: 5,
     maze: [ [0,0,1,0,0], [1,0,0,0,1], [0,0,1,0,0], [0,1,0,1,0], [0,0,0,0,0] ]
   },
   {
-    name: 'Sector 2 (Complex)', size: 7,
+    name: 'Sector 2', size: 7,
     maze: [ [0,1,0,0,0,1,0], [0,1,0,1,0,0,0], [0,0,0,1,1,1,0], [1,1,0,0,0,0,0], [0,0,0,1,1,1,1], [0,1,0,0,0,0,0], [0,0,0,1,0,1,0] ]
   }
 ];
 
 export default function App() {
   const [appState, setAppState] = useState('welcome'); 
-  const [controlMode, setControlMode] = useState('tap'); // 'tap' or 'drag'
+  const [controlMode, setControlMode] = useState('tap');
   const [sessionSeed, setSessionSeed] = useState(generateRandomSeed());
+  const [playerId] = useState(getOrCreatePlayerId);
+  const [playerLabel] = useState(getOrCreatePlayerLabel);
+  const [playerName, setPlayerName] = useState(playerLabel);
   
   const [levelIndex, setLevelIndex] = useState(0);
   const [levelData, setLevelData] = useState(STATIC_LEVELS[0]);
@@ -130,11 +312,13 @@ export default function App() {
   const [wrongTries, setWrongTries] = useState(0);
   const [gameState, setGameState] = useState('playing'); 
   
-  const [aiVisited, setAiVisited] = useState(new Set());
+  const [aiVisited, setAiVisited] = useState(new Map());
   const [aiPath, setAiPath] = useState([]);
   
   // Heatmap State
   const [heatMap, setHeatMap] = useState({});
+  const [aiHeatMap, setAiHeatMap] = useState({});
+  const [heatmapMode, setHeatmapMode] = useState('human'); // 'human' or 'ai-dfs' or 'ai-bfs' or 'ai-astar'
   
   // Drag State
   const [isDragging, setIsDragging] = useState(false);
@@ -149,6 +333,23 @@ export default function App() {
     bfs: { faults: 0, ops: 0, timeMs: 0 },
     astar: { faults: 0, ops: 0, timeMs: 0 }
   });
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false);
+  const [challengeMode, setChallengeMode] = useState('sector');
+  const [joinCode, setJoinCode] = useState('');
+  const [friendRoom, setFriendRoom] = useState(null);
+  const [friendResults, setFriendResults] = useState([]);
+  const [friendPlayers, setFriendPlayers] = useState([]);
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const [challengeMessage, setChallengeMessage] = useState('');
+  const [roomNotice, setRoomNotice] = useState(null);
+  const [roomExitCountdown, setRoomExitCountdown] = useState(null);
+  const [quitPromptOpen, setQuitPromptOpen] = useState(false);
+  const closedRoomNoticeRef = useRef(null);
+  const allowBrowserExitRef = useRef(false);
+  const handleBackRef = useRef(null);
+  
+  // Use D-pad for large grids
+  const useDpad = GRID_SIZE > 7;
   
   const isValid = (r, c) => r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE;
   const isWall = (r, c) => INITIAL_MAZE[r][c] === 1;
@@ -171,36 +372,525 @@ export default function App() {
     return () => clearInterval(interval);
   }, [timerRunning]);
 
-  const loadLevel = (idx) => {
-    // If playing procedurally, use the seed + level as salt so each room is deterministic but changes!
-    setMazeSeed(sessionSeed + "_level_" + idx); 
-    
-    // Heatmap resets per level
+  // Keyboard / D-pad movement
+  const movePlayer = useCallback((dr, dc) => {
+    if (gameState !== 'playing') return;
+    const nr = playerPosition.r + dr;
+    const nc = playerPosition.c + dc;
+    if (!isValid(nr, nc)) return;
+    handleCellClick(nr, nc);
+  }, [playerPosition, gameState, GRID_SIZE, INITIAL_MAZE]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (gameState !== 'playing') return;
+      switch (e.key) {
+        case 'ArrowUp': case 'w': case 'W': movePlayer(-1, 0); break;
+        case 'ArrowDown': case 's': case 'S': movePlayer(1, 0); break;
+        case 'ArrowLeft': case 'a': case 'A': movePlayer(0, -1); break;
+        case 'ArrowRight': case 'd': case 'D': movePlayer(0, 1); break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [movePlayer]);
+
+  const fetchFriendResults = async (roomId) => {
+    if (!supabase || !roomId) return;
+    const { data, error } = await supabase
+      .from('challenge_results')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('time_ms', { ascending: true })
+      .order('faults', { ascending: true });
+    if (error) {
+      setChallengeMessage(error.message);
+      return;
+    }
+    setFriendResults(data || []);
+  };
+
+  const fetchFriendPlayers = async (roomId) => {
+    if (!supabase || !roomId) return;
+    const { data, error } = await supabase
+      .from('challenge_players')
+      .select('*')
+      .eq('room_id', roomId)
+      .order('joined_at', { ascending: true });
+    if (error) {
+      setChallengeMessage(error.message);
+      return;
+    }
+    setFriendPlayers(data || []);
+  };
+
+  const fetchFriendRoom = async (roomId) => {
+    if (!supabase || !roomId) return;
+    const { data, error } = await supabase
+      .from('challenge_rooms')
+      .select('*')
+      .eq('id', roomId)
+      .maybeSingle();
+    if (error) {
+      setChallengeMessage(error.message);
+      return;
+    }
+    if (data) setFriendRoom(data);
+  };
+
+  useEffect(() => {
+    if (!supabase || !friendRoom?.id) return undefined;
+    fetchFriendResults(friendRoom.id);
+    fetchFriendPlayers(friendRoom.id);
+    fetchFriendRoom(friendRoom.id);
+    const channel = supabase
+      .channel(`challenge-room-${friendRoom.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenge_rooms',
+          filter: `id=eq.${friendRoom.id}`,
+        },
+        () => fetchFriendRoom(friendRoom.id)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenge_players',
+          filter: `room_id=eq.${friendRoom.id}`,
+        },
+        () => fetchFriendPlayers(friendRoom.id)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'challenge_results',
+          filter: `room_id=eq.${friendRoom.id}`,
+        },
+        () => fetchFriendResults(friendRoom.id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [friendRoom?.id]);
+
+  const activateFriendRoom = (room) => {
+    setFriendRoom(room);
+    setFriendResults([]);
+    setFriendPlayers([]);
+    setRoomNotice(null);
+    setRoomExitCountdown(null);
+    closedRoomNoticeRef.current = null;
+    setChallengeMessage(`${room.mode === 'global' ? 'Global run' : 'Sector challenge'} active.`);
+  };
+
+  const showRoomNotice = useCallback((title, body, tone = 'info') => {
+    setRoomNotice({ title, body, tone });
+  }, []);
+
+  const clearFriendMode = useCallback((message = 'Back to solo mode.') => {
+    setFriendRoom(null);
+    setFriendResults([]);
+    setFriendPlayers([]);
+    setRoomNotice(null);
+    setRoomExitCountdown(null);
+    closedRoomNoticeRef.current = null;
+    setChallengeModalOpen(false);
+    setChallengeMessage(message);
+  }, []);
+
+  const forceQuitApp = useCallback(() => {
+    allowBrowserExitRef.current = true;
+    setQuitPromptOpen(false);
+    window.close();
+    setTimeout(() => {
+      window.history.go(-2);
+    }, 80);
+  }, []);
+
+  const savePlayerName = () => {
+    const cleanName = sanitizePlayerName(playerName);
+    window.localStorage.setItem('algo-arcade-player-label', cleanName);
+    setPlayerName(cleanName);
+    return cleanName;
+  };
+
+  const registerChallengePlayer = async (room, role, label) => {
+    if (!supabase || !room?.id) return { error: new Error('Supabase is not configured.') };
+    return supabase
+      .from('challenge_players')
+      .upsert({
+        room_id: room.id,
+        player_id: playerId,
+        player_label: label,
+        role,
+        active: true,
+      }, { onConflict: 'room_id,player_id' })
+      .select()
+      .single();
+  };
+
+  const createChallenge = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setChallengeMessage('Supabase is not configured.');
+      return;
+    }
+    const cleanName = savePlayerName();
+    setChallengeLoading(true);
+    setChallengeMessage('');
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const roomCode = generateRoomCode();
+      const { data, error } = await supabase
+        .from('challenge_rooms')
+        .insert({
+          room_code: roomCode,
+          mode: challengeMode,
+          seed: sessionSeed,
+          level_index: levelIndex,
+          current_level_index: levelIndex,
+          created_by_player_id: playerId,
+          creator_label: cleanName,
+          max_players: 4,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        const { error: playerError } = await registerChallengePlayer(data, 'host', cleanName);
+        if (playerError) {
+          setChallengeMessage(playerError.message || 'Room created, but joining it failed.');
+          setChallengeLoading(false);
+          return;
+        }
+        activateFriendRoom(data);
+        setJoinCode(data.room_code);
+        setChallengeLoading(false);
+        return;
+      }
+
+      if (error?.code !== '23505') {
+        setChallengeMessage(error?.message || 'Could not create challenge.');
+        setChallengeLoading(false);
+        return;
+      }
+    }
+    setChallengeMessage('Could not find a fresh room code. Try again.');
+    setChallengeLoading(false);
+  };
+
+  const joinChallenge = async () => {
+    if (!isSupabaseConfigured || !supabase) {
+      setChallengeMessage('Supabase is not configured.');
+      return;
+    }
+    const roomCode = normalizeRoomCode(joinCode);
+    if (roomCode.length < 4) {
+      setChallengeMessage('Enter a valid challenge code.');
+      return;
+    }
+    const cleanName = savePlayerName();
+    setChallengeLoading(true);
+    setChallengeMessage('');
+    const { data, error } = await supabase
+      .from('challenge_rooms')
+      .select('*')
+      .eq('room_code', roomCode)
+      .eq('status', 'open')
+      .maybeSingle();
+
+    if (error || !data) {
+      setChallengeMessage(error?.message || 'No active challenge found for that code.');
+      setChallengeLoading(false);
+      return;
+    }
+
+    const { count, error: countError } = await supabase
+      .from('challenge_players')
+      .select('id', { count: 'exact', head: true })
+      .eq('room_id', data.id)
+      .eq('active', true);
+    if (countError) {
+      setChallengeMessage(countError.message);
+      setChallengeLoading(false);
+      return;
+    }
+    if ((count || 0) >= (data.max_players || 4)) {
+      const { data: existingPlayer } = await supabase
+        .from('challenge_players')
+        .select('id')
+        .eq('room_id', data.id)
+        .eq('player_id', playerId)
+        .maybeSingle();
+      if (!existingPlayer) {
+        setChallengeMessage('Room is full. Friend mode supports up to 4 players.');
+        setChallengeLoading(false);
+        return;
+      }
+    }
+
+    const { error: playerError } = await registerChallengePlayer(data, 'guest', cleanName);
+    if (playerError) {
+      setChallengeMessage(playerError.message || 'Could not join the room.');
+      setChallengeLoading(false);
+      return;
+    }
+
+    const targetLevel = data.mode === 'global' ? data.current_level_index ?? data.level_index : data.level_index;
+    setSessionSeed(data.seed);
+    setLevelIndex(targetLevel);
+    loadLevel(targetLevel, data.seed);
+    resetMatch();
+    activateFriendRoom(data);
+    setChallengeModalOpen(false);
+    setChallengeLoading(false);
+  };
+
+  const leaveChallenge = useCallback(async () => {
+    const roomToClose = friendRoom;
+    if (roomToClose?.status === 'closed') {
+      clearFriendMode();
+      return;
+    }
+    if (supabase && roomToClose?.created_by_player_id === playerId) {
+      const { data, error } = await supabase
+        .from('challenge_rooms')
+        .update({ status: 'closed', closed_by_player_id: playerId, closed_reason: 'host_exit' })
+        .eq('id', roomToClose.id)
+        .select()
+        .single();
+      if (error) {
+        setChallengeMessage(error.message);
+        return;
+      }
+      setFriendRoom(data || { ...roomToClose, status: 'closed', closed_by_player_id: playerId, closed_reason: 'host_exit' });
+      setChallengeModalOpen(false);
+      showRoomNotice('Room Closed', 'Final results are locked. Returning to normal mode in 10 seconds.', 'closed');
+      setChallengeMessage('Room closed. Final results are ready.');
+    } else if (supabase && roomToClose?.id) {
+      await supabase
+        .from('challenge_players')
+        .update({ active: false })
+        .eq('room_id', roomToClose.id)
+        .eq('player_id', playerId);
+      clearFriendMode();
+    }
+  }, [clearFriendMode, friendRoom, playerId, showRoomNotice]);
+
+  const handleAppBack = useCallback(() => {
+    if (quitPromptOpen) {
+      forceQuitApp();
+      return;
+    }
+
+    if (challengeModalOpen) {
+      setChallengeModalOpen(false);
+      return;
+    }
+
+    if (roomNotice?.tone === 'waiting') {
+      setRoomNotice(null);
+      return;
+    }
+
+    if (gameState === 'heatmap') {
+      setGameState('user-done');
+      return;
+    }
+
+    if (gameState === 'user-done') {
+      setGameState('playing');
+      return;
+    }
+
+    if (appState === 'game') {
+      if (friendRoom?.status === 'open') {
+        leaveChallenge();
+      }
+      setAppState('welcome');
+      return;
+    }
+
+    setQuitPromptOpen(true);
+  }, [appState, challengeModalOpen, forceQuitApp, friendRoom?.status, gameState, leaveChallenge, quitPromptOpen, roomNotice?.tone]);
+
+  useEffect(() => {
+    handleBackRef.current = handleAppBack;
+  }, [handleAppBack]);
+
+  useEffect(() => {
+    window.history.replaceState({ algoArcade: true }, '', window.location.href);
+    window.history.pushState({ algoArcade: true }, '', window.location.href);
+
+    const handlePopState = () => {
+      if (allowBrowserExitRef.current) return;
+      handleBackRef.current?.();
+      window.history.pushState({ algoArcade: true }, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const submitChallengeResult = async (finishedTimeMs) => {
+    if (!supabase || !friendRoom) return;
+    const cleanName = savePlayerName();
+    await supabase
+      .from('challenge_players')
+      .update({ player_label: cleanName, active: true })
+      .eq('room_id', friendRoom.id)
+      .eq('player_id', playerId);
+    const { error } = await supabase
+      .from('challenge_results')
+      .upsert({
+        room_id: friendRoom.id,
+        player_id: playerId,
+        player_label: cleanName,
+        level_index: levelIndex,
+        time_ms: finishedTimeMs,
+        faults: wrongTries,
+        path_length: path.length,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: 'room_id,player_id,level_index' });
+
+    if (error) {
+      setChallengeMessage(error.message);
+      return;
+    }
+    setChallengeMessage('Result synced.');
+  };
+
+  const activeChallengePlayers = () => friendPlayers.filter((player) => player.active);
+
+  const levelChallengeResults = (targetLevel = levelIndex) => friendResults
+    .filter((result) => result.level_index === targetLevel)
+    .sort((a, b) => a.time_ms - b.time_ms || a.faults - b.faults || a.path_length - b.path_length);
+
+  const allPlayersFinishedLevel = (targetLevel = levelIndex) => {
+    const activePlayers = activeChallengePlayers();
+    const completedIds = new Set(levelChallengeResults(targetLevel).map((result) => result.player_id));
+    return activePlayers.length > 1 && activePlayers.every((player) => completedIds.has(player.player_id));
+  };
+
+  const waitingPlayerNames = (targetLevel = levelIndex) => {
+    const completedIds = new Set(levelChallengeResults(targetLevel).map((result) => result.player_id));
+    return activeChallengePlayers()
+      .filter((player) => !completedIds.has(player.player_id))
+      .map((player) => player.player_id === playerId ? 'you' : player.player_label);
+  };
+
+  const closeCurrentRoom = async (reason) => {
+    if (!supabase || !friendRoom?.id || friendRoom.status === 'closed') return;
+    const { error } = await supabase
+      .from('challenge_rooms')
+      .update({ status: 'closed', closed_by_player_id: playerId, closed_reason: reason })
+      .eq('id', friendRoom.id);
+    if (error) setChallengeMessage(error.message);
+  };
+
+  useEffect(() => {
+    if (!friendRoom || friendRoom.status !== 'closed') return;
+    if (closedRoomNoticeRef.current === friendRoom.id) return;
+    closedRoomNoticeRef.current = friendRoom.id;
+    const hostClosed = friendRoom.closed_reason === 'host_exit';
+    const isCreator = friendRoom.created_by_player_id === playerId;
+    if (friendRoom.created_by_player_id === playerId) {
+      setChallengeMessage(hostClosed ? 'Room closed.' : 'Room closed. Final results are ready.');
+    } else {
+      setChallengeMessage(hostClosed ? 'Room ended by the host. Final results are ready.' : 'Room ended. Final results are ready.');
+    }
+    showRoomNotice(
+      isCreator ? 'Room Closed' : 'Room Ended',
+      `${hostClosed && !isCreator ? 'The host closed the room.' : 'Final results are locked.'} Returning to normal mode in 10 seconds.`,
+      'closed'
+    );
+    setRoomExitCountdown(10);
+    setChallengeModalOpen(false);
+  }, [friendRoom, gameState, playerId, showRoomNotice]);
+
+  useEffect(() => {
+    if (roomExitCountdown === null) return undefined;
+    if (roomExitCountdown <= 0) {
+      clearFriendMode('Normal algorithm mode restored.');
+      return undefined;
+    }
+    const timeout = setTimeout(() => setRoomExitCountdown((value) => (
+      value === null ? null : Math.max(0, value - 1)
+    )), 1000);
+    return () => clearTimeout(timeout);
+  }, [clearFriendMode, roomExitCountdown]);
+
+  useEffect(() => {
+    if (!roomNotice || roomNotice.tone !== 'waiting') return undefined;
+    const timeout = setTimeout(() => {
+      setRoomNotice((notice) => notice?.tone === 'waiting' ? null : notice);
+    }, 4200);
+    return () => clearTimeout(timeout);
+  }, [roomNotice]);
+
+  useEffect(() => {
+    if (!friendRoom || friendRoom.mode !== 'sector' || friendRoom.status !== 'open') return;
+    if (friendRoom.created_by_player_id !== playerId) return;
+    const activePlayersInRoom = friendPlayers.filter((player) => player.active);
+    const completedIds = new Set(
+      friendResults
+        .filter((result) => result.level_index === friendRoom.level_index)
+        .map((result) => result.player_id)
+    );
+    if (activePlayersInRoom.length <= 1 || !activePlayersInRoom.every((player) => completedIds.has(player.player_id))) return;
+    supabase
+      ?.from('challenge_rooms')
+      .update({ status: 'closed', closed_by_player_id: playerId, closed_reason: 'sector_complete' })
+      .eq('id', friendRoom.id)
+      .then(({ error }) => {
+        if (error) setChallengeMessage(error.message);
+      });
+  }, [friendRoom, friendPlayers, friendResults, playerId]);
+
+  const loadLevel = useCallback((idx, seedOverride = sessionSeed) => {
+    setMazeSeed(seedOverride + "_level_" + idx); 
     setHeatMap({});
+    setAiHeatMap({});
     
     if (idx < STATIC_LEVELS.length) {
       setLevelData(STATIC_LEVELS[idx]);
     } else {
       const size = Math.min(13, 5 + (idx * 2)); 
       setLevelData({
-        name: `Sector ${idx + 1} (Seed: ${sessionSeed})`,
+        name: `Sector ${idx + 1}`,
         size: size,
         maze: generateMaze(size)
       });
     }
-  };
+  }, [sessionSeed]);
+
+  useEffect(() => {
+    if (!friendRoom || friendRoom.mode !== 'global' || friendRoom.status !== 'open') return;
+    if (typeof friendRoom.current_level_index !== 'number') return;
+    if (friendRoom.current_level_index <= levelIndex) return;
+    setLevelIndex(friendRoom.current_level_index);
+    loadLevel(friendRoom.current_level_index, friendRoom.seed);
+    resetMatch();
+    setChallengeMessage(`Advanced to Sector ${friendRoom.current_level_index + 1}.`);
+  }, [friendRoom, levelIndex, loadLevel]);
 
   const startGame = () => {
      AudioEngine.init();
      AudioEngine.tap();
-     loadLevel(0); // Load level 0 deterministically
+     loadLevel(0);
      setAppState('game');
   };
 
   const handleCellClick = (r, c) => {
     if (gameState !== 'playing') return;
     
-    // Avoid double processing on drag
     const posId = `${r}-${c}`;
     
     const dr = Math.abs(r - playerPosition.r);
@@ -222,7 +912,6 @@ export default function App() {
       document.getElementById(cellId)?.classList.add('wrong');
       setTimeout(() => document.getElementById(cellId)?.classList.remove('wrong'), 400);
       
-      // Heatmap Data (Wall Hits)
       setHeatMap(prev => ({...prev, [`w-${r}-${c}`]: (prev[`w-${r}-${c}`] || 0) + 1 }));
       return;
     }
@@ -232,7 +921,6 @@ export default function App() {
 
     setPlayerPosition({ r, c });
     
-    // Heatmap Data (Valid Path Steps)
     setHeatMap(prev => ({...prev, [`v-${r}-${c}`]: (prev[`v-${r}-${c}`] || 0) + 1 }));
 
     if (isAlreadyInPath) {
@@ -245,10 +933,12 @@ export default function App() {
     if (r === END.r && c === END.c) {
       AudioEngine.win();
       if (window.navigator && window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+      const finishedTimeMs = timeMs;
       setTimerRunning(false); 
-      setUserTimeMs(timeMs);
+      setUserTimeMs(finishedTimeMs);
       setGameState('user-done');
-      setIsDragging(false); // Stop dragging upon win
+      setIsDragging(false);
+      submitChallengeResult(finishedTimeMs);
       precalculateAlgorithms();
     }
   };
@@ -266,13 +956,82 @@ export default function App() {
       const r = parseInt(parts[1], 10);
       const c = parseInt(parts[2], 10);
       
-      // Throttling same-cell processing to save performance during drag
       const curId = `${r}-${c}`;
       if (lastProcessedDrag.current !== curId) {
          lastProcessedDrag.current = curId;
          handleCellClick(r, c);
       }
     }
+  };
+
+  // Generate AI heatmap data for each algorithm
+  const generateAIHeatmap = (algo) => {
+    const aiHeat = {};
+    if (algo === 'dfs') {
+      const dfsVisited = new Set();
+      let found = false;
+      const dfs = (r, c) => {
+        if (found) return;
+        if (!isValid(r, c) || dfsVisited.has(`${r}-${c}`)) return;
+        if (isWall(r, c)) { 
+          aiHeat[`w-${r}-${c}`] = (aiHeat[`w-${r}-${c}`] || 0) + 1;
+          return; 
+        }
+        dfsVisited.add(`${r}-${c}`);
+        aiHeat[`v-${r}-${c}`] = (aiHeat[`v-${r}-${c}`] || 0) + 1;
+        if (r === END.r && c === END.c) { found = true; return; }
+        [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dr,dc]) => dfs(r+dr, c+dc));
+        if (!found) {
+          aiHeat[`v-${r}-${c}`] = (aiHeat[`v-${r}-${c}`] || 0) + 1; // backtrack counts as revisit
+        }
+      };
+      dfs(START.r, START.c);
+    } else if (algo === 'bfs') {
+      const bfsVisited = new Set([`0-0`]);
+      aiHeat[`v-0-0`] = 1;
+      const q = [[0, 0]];
+      let found = false;
+      while (q.length > 0 && !found) {
+        const [r, c] = q.shift();
+        if (r === END.r && c === END.c) { found = true; break; }
+        [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dr,dc]) => {
+          const nr = r+dr, nc = c+dc;
+          if (!isValid(nr, nc) || bfsVisited.has(`${nr}-${nc}`)) return;
+          bfsVisited.add(`${nr}-${nc}`);
+          if (isWall(nr, nc)) { 
+            aiHeat[`w-${nr}-${nc}`] = (aiHeat[`w-${nr}-${nc}`] || 0) + 1;
+            return; 
+          }
+          aiHeat[`v-${nr}-${nc}`] = (aiHeat[`v-${nr}-${nc}`] || 0) + 1;
+          q.push([nr, nc]);
+        });
+      }
+    } else { // astar
+      const h = (r, c) => Math.abs(r - END.r) + Math.abs(c - END.c);
+      const open = [{ r: START.r, c: START.c, g: 0, f: h(START.r, START.c) }];
+      const closed = new Set();
+      aiHeat[`v-${START.r}-${START.c}`] = 1;
+      while (open.length > 0) {
+        open.sort((a, b) => b.f - a.f);
+        const curr = open.pop();
+        const key = `${curr.r}-${curr.c}`;
+        if (closed.has(key)) continue;
+        closed.add(key);
+        aiHeat[`v-${curr.r}-${curr.c}`] = (aiHeat[`v-${curr.r}-${curr.c}`] || 0) + 1;
+        if (curr.r === END.r && curr.c === END.c) break;
+        [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dr,dc]) => {
+          const nr = curr.r+dr, nc = curr.c+dc;
+          if (!isValid(nr, nc) || closed.has(`${nr}-${nc}`)) return;
+          if (isWall(nr, nc)) { 
+            aiHeat[`w-${nr}-${nc}`] = (aiHeat[`w-${nr}-${nc}`] || 0) + 1;
+            closed.add(`${nr}-${nc}`);
+            return; 
+          }
+          open.push({ r: nr, c: nc, g: curr.g+1, f: curr.g+1+h(nr, nc) });
+        });
+      }
+    }
+    return aiHeat;
   };
 
   const precalculateAlgorithms = () => {
@@ -287,10 +1046,10 @@ export default function App() {
         if(isWall(r,c)) { faults++; totalSteps++; return; }
         ops++;
         dfsVisited.add(`${r}-${c}`);
-        totalSteps++; // visit
+        totalSteps++;
         if(r===END.r && c===END.c) { dfsFound=true; return; }
         [[1,0],[0,1],[-1,0],[0,-1]].forEach(([dr,dc]) => dfs(r+dr, c+dc));
-        if(!dfsFound) totalSteps++; // backtrack
+        if(!dfsFound) totalSteps++;
       };
       dfs(START.r, START.c);
       return { faults, ops, timeMs: totalSteps * 40 };
@@ -352,7 +1111,7 @@ export default function App() {
     setTimeMs(0); 
     setTimerRunning(true);
     setGameState(`ai-playing`);
-    setAiVisited(new Set());
+    setAiVisited(new Map());
     setAiPath([]);
     const sequence = []; 
     let found = false;
@@ -419,7 +1178,7 @@ export default function App() {
       if (step.type === 'visit') {
         AudioEngine.aiTick(algo);
         setAiPath(p => [...p, `${step.r}-${step.c}`]);
-        setAiVisited(prev => { const n = new Set(prev); n.add(`${step.r}-${step.c}`); return n; });
+        setAiVisited(prev => { const n = new Map(prev); if(!n.has(`${step.r}-${step.c}`)) n.set(`${step.r}-${step.c}`, n.size); return n; });
       } else if (step.type === 'backtrack') {
         setAiPath(p => p.filter(x => x !== `${step.r}-${step.c}`));
       } else if (step.type === 'wrong') {
@@ -436,20 +1195,60 @@ export default function App() {
 
   const nextLevel = () => {
     const nextIdx = levelIndex + 1;
+    const nextSeed = friendRoom?.mode === 'global' ? friendRoom.seed : sessionSeed;
+    if (friendRoom) {
+      if (friendRoom.status === 'closed') {
+        showRoomNotice(
+          friendRoom.mode === 'global' ? 'Global Room Closed' : 'Sector Room Ended',
+          'Final results are locked. Normal algorithm mode will resume automatically.',
+          'closed'
+        );
+        return;
+      }
+
+      if (activeChallengePlayers().length < 2) {
+        showRoomNotice('Waiting Room', 'Please wait for at least one friend to join before moving sectors.', 'waiting');
+        return;
+      }
+
+      if (!allPlayersFinishedLevel(levelIndex)) {
+        showRoomNotice(
+          'Sector Locked',
+          `Please wait for ${joinNames(waitingPlayerNames(levelIndex))} to finish this sector.`,
+          'waiting'
+        );
+        return;
+      }
+
+      if (friendRoom.mode === 'sector') {
+        closeCurrentRoom('sector_complete');
+        showRoomNotice('Sector Room Complete', 'Final results are locked. Returning to normal mode in 10 seconds.', 'closed');
+        return;
+      }
+
+      supabase
+        ?.from('challenge_rooms')
+        .update({ current_level_index: nextIdx })
+        .eq('id', friendRoom.id)
+        .then(({ error }) => {
+          if (error) setChallengeMessage(error.message);
+        });
+    }
+
     setLevelIndex(nextIdx);
-    loadLevel(nextIdx);
+    loadLevel(nextIdx, nextSeed);
     resetMatch();
   };
 
   const resetMatch = () => {
-    setPlayerPosition(START);
+    setPlayerPosition({ r: 0, c: 0 });
     setPath(['0-0']);
     setWrongTries(0);
     setTimeMs(0);
     setUserTimeMs(0);
     setTimerRunning(false);
     setGameState('playing');
-    setAiVisited(new Set());
+    setAiVisited(new Map());
     setAiPath([]);
   };
 
@@ -459,48 +1258,38 @@ export default function App() {
   // --- WELCOME SCREEN ---
   if (appState === 'welcome') {
     return (
-      <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--primary)' }}>
+      <div className="app-container welcome-screen">
+        <LiquidChromeFilters />
         <motion.div
            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', bounce: 0.5 }}
-           className="avatar" style={{ width: '100px', height: '100px', marginBottom: '2rem', boxShadow: 'var(--shadow-soft)' }}
+           className="logo-3d"
         >
-          <Zap size={50} className="text-blue-600" />
+          <AlgoArcadeLogo />
         </motion.div>
         
         <motion.h1 
           initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
-          style={{ fontSize: '4.5rem', lineHeight: 1, textAlign: 'center', marginBottom: '1.5rem', color: '#111' }}
+          className="welcome-title"
         >
-          JOENTLY<br/>NEURAL
+          <ChromeText>
+            <span className="brand-line">ALGO</span>
+            <span className="brand-line">ARCADE</span>
+          </ChromeText>
         </motion.h1>
+        <motion.p
+          initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 0.5 }} transition={{ delay: 0.15 }}
+          className="welcome-subtitle"
+        >
+          ALGORITHM MAZE ARCADE
+        </motion.p>
 
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="flex-col" style={{ gap: '1.5rem', marginBottom: '4rem', width: '100%', maxWidth: '320px' }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="welcome-controls">
             
-            {/* Transparent UI Layout Request */}
-            <div className="flex-col" style={{ gap: '0.5rem' }}>
-              <label className="text-sm font-extrabold flex-row" style={{ color: 'rgba(0,0,0,0.5)', letterSpacing: '0.1em', alignSelf: 'center' }}><Share2 size={16}/> SEED PROTOCOL</label>
-              <div className="flex-row" style={{ gap: '0', background: 'rgba(255,255,255,0.2)', padding: '0.25rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(8px)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
-                 <input 
-                   type="text" 
-                   value={sessionSeed} 
-                   onChange={(e) => setSessionSeed(e.target.value.toUpperCase().substring(0, 8))}
-                   className="font-bold text-center"
-                   style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', fontSize: '1.2rem', textTransform: 'uppercase', background: 'transparent', color: '#000', outline: 'none', letterSpacing: '2px' }}
-                   placeholder="CODE"
-                 />
-                 <button 
-                    onClick={() => setSessionSeed(generateRandomSeed())} 
-                    style={{ background: 'rgba(0,0,0,0.05)', border: 'none', cursor: 'pointer', padding: '0 1.2rem', height: '100%', borderRadius: '0.75rem', color: '#000', outline: 'none', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
-                 >
-                    <RotateCcw size={20} />
-                 </button>
-              </div>
-            </div>
-
-            <div className="flex-col" style={{ gap: '0.5rem' }}>
-              <label className="text-sm font-extrabold flex-row" style={{ color: 'rgba(0,0,0,0.5)', letterSpacing: '0.1em', alignSelf: 'center' }}><Settings2 size={16}/> OVERRIDE SYSTEM</label>
+            {/* Control Mode Toggle - Clean */}
+            <div className="control-section">
+              <label className="control-label">
+                <Settings2 size={14}/> CONTROL MODE
+              </label>
               <SketchyToggle 
                  options={[
                     { id: 'tap', label: 'TAP' },
@@ -513,21 +1302,74 @@ export default function App() {
 
         </motion.div>
 
-        <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '2rem' }}>
+        <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="welcome-start-area">
            <GithubButton onClick={startGame} />
         </motion.div>
+
+        <AnimatePresence>
+          {quitPromptOpen && (
+            <motion.div className="modal-overlay quit-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <motion.div
+                className="quit-card"
+                initial={{ y: 24, opacity: 0, scale: 0.96 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 24, opacity: 0, scale: 0.96 }}
+              >
+                <span className="room-inbox-kicker">Exit Check</span>
+                <h2>Quit Algo Arcade?</h2>
+                <p>Press back again or choose Quit to leave the app. Stay keeps you on the home screen.</p>
+                <div className="quit-actions">
+                  <button className="btn btn-outline flex-1" type="button" onClick={() => setQuitPromptOpen(false)}>Stay</button>
+                  <button className="btn btn-dark flex-1" type="button" onClick={forceQuitApp}>Quit</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
 
   // --- GAME UI ---
   const isHeatmapViewing = gameState === 'heatmap';
+  
+  // Decide which heatmap data to show
+  const activeHeatData = (() => {
+    if (heatmapMode === 'human') return heatMap;
+    return aiHeatMap;
+  })();
+  const friendModeActive = Boolean(friendRoom);
+  const activePlayers = activeChallengePlayers();
+  const currentChallengeResults = levelChallengeResults(levelIndex);
+  const myChallengeResult = currentChallengeResults.find((result) => result.player_id === playerId);
+  const challengeWinner = currentChallengeResults[0];
+  const allPlayersDoneCurrent = friendModeActive && allPlayersFinishedLevel(levelIndex);
+  const waitingNamesCurrent = friendModeActive ? waitingPlayerNames(levelIndex) : [];
+  const overallChallengeResults = friendModeActive ? summarizeResults(friendPlayers, friendResults) : [];
+  const challengeScorePlayers = friendModeActive
+    ? (friendPlayers.length ? friendPlayers : [{ player_id: playerId, player_label: sanitizePlayerName(playerName), active: true }])
+      .filter((player) => player.active || currentChallengeResults.some((result) => result.player_id === player.player_id))
+    : [];
+  const roomClosed = friendRoom?.status === 'closed';
+  const challengeStatusText = (() => {
+    if (!friendModeActive) return '';
+    if (roomClosed) {
+      if (friendRoom.closed_reason === 'host_exit' && friendRoom.created_by_player_id !== playerId) return 'Host closed the room. Final results are ready.';
+      return friendRoom.created_by_player_id === playerId ? 'Room closed. Final results are ready.' : 'Room ended. Final results are ready.';
+    }
+    if (activePlayers.length < 2) return 'Waiting for at least one friend to join.';
+    if (allPlayersDoneCurrent) return friendRoom.mode === 'sector' ? 'Sector complete. Room results are final.' : 'All clear. Next sector is unlocked.';
+    return `Waiting for ${joinNames(waitingNamesCurrent)} to finish.`;
+  })();
+  const maxOverallSectors = Math.max(1, ...overallChallengeResults.map((player) => player.sectors));
+  const activeRoomNotice = roomNotice && friendModeActive;
 
   return (
-    <div className="app-container">
+    <div className="app-container game-screen">
+      <LiquidChromeFilters />
       <header className="header" style={{ opacity: isHeatmapViewing ? 0.3 : 1, transition: 'opacity 0.3s' }}>
          <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} key={levelIndex} className="flex-col" style={{ alignItems: 'flex-start' }}>
-           <div className="flex-row" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+           <div className="flex-row" style={{ gap: '0.5rem', marginBottom: '0.25rem' }}>
              <div className="pill-badge flex-row font-mono text-xs">
                <Activity size={12}/> 
                {levelData.name}
@@ -537,13 +1379,36 @@ export default function App() {
                  <Share2 size={12}/> {sessionSeed}
                </div>
              )}
+             {friendModeActive && (
+               <div className="pill-badge flex-row font-mono text-xs" style={{ background: '#111', color: 'var(--accent)' }}>
+                 <Share2 size={12}/> {friendRoom.room_code}
+               </div>
+             )}
            </div>
-           <h1 style={{ fontSize: '1.8rem', lineHeight: '1.1' }}>JOENTLY<br/>NEURAL</h1>
+           <h1 className="header-title">
+             <ChromeText>{APP_NAME}</ChromeText>
+           </h1>
          </motion.div>
-         <div className="avatar" style={{ boxShadow: '2px 2px 0 #000' }}>
-           <Zap size={24} className="text-blue-600" fill="#2563eb" />
-         </div>
+         <button className="logo-3d-small logo-trigger" type="button" onClick={() => setChallengeModalOpen(true)} aria-label="Open friend challenge">
+           <AlgoArcadeLogo compact />
+         </button>
       </header>
+
+      <AnimatePresence>
+        {activeRoomNotice && gameState !== 'user-done' && (
+          <motion.div
+            className={`room-inbox-message ${roomNotice.tone}`}
+            initial={{ y: -12, opacity: 0, scale: 0.97 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -12, opacity: 0, scale: 0.97 }}
+          >
+            <span className="room-inbox-kicker">Room Inbox</span>
+            <strong>{roomNotice.title}</strong>
+            <p>{roomNotice.body}</p>
+            {roomExitCountdown !== null && <span className="room-countdown">{roomExitCountdown}s to solo mode</span>}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* HUD Stats */}
       <div className="stats-grid" style={{ opacity: isHeatmapViewing ? 0 : 1, transition: 'opacity 0.3s' }}>
@@ -557,24 +1422,37 @@ export default function App() {
          </div>
       </div>
 
-      {/* Heatmap HUD (Only visible during heatmap) */}
+      {/* Heatmap HUD */}
       {isHeatmapViewing && (
-        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex-col" style={{ position: 'absolute', top: '150px', left: 0, right: 0, zIndex: 50, alignItems: 'center' }}>
-            <div className="pill-badge flex-row" style={{ background: 'var(--danger)', color: '#fff', boxShadow: '0 5px 20px rgba(255,0,0,0.3)' }}>
-               <Flame size={16} /> HUMAN ERROR HEATMAP
+        <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="heatmap-hud">
+            <div className="heatmap-tabs">
+              <button className={`heatmap-tab ${heatmapMode === 'human' ? 'active' : ''}`} onClick={() => { setHeatmapMode('human'); }}>
+                <MousePointer2 size={14} /> You
+              </button>
+              <button className={`heatmap-tab ${heatmapMode === 'ai-dfs' ? 'active' : ''}`} onClick={() => { setHeatmapMode('ai-dfs'); setAiHeatMap(generateAIHeatmap('dfs')); }}>
+                <BrainCircuit size={14} /> DFS
+              </button>
+              <button className={`heatmap-tab ${heatmapMode === 'ai-bfs' ? 'active' : ''}`} onClick={() => { setHeatmapMode('ai-bfs'); setAiHeatMap(generateAIHeatmap('bfs')); }}>
+                <Activity size={14} /> BFS
+              </button>
+              <button className={`heatmap-tab ${heatmapMode === 'ai-astar' ? 'active' : ''}`} onClick={() => { setHeatmapMode('ai-astar'); setAiHeatMap(generateAIHeatmap('astar')); }}>
+                <Zap size={14} /> A*
+              </button>
             </div>
-            <p className="font-bold mt-2 text-center" style={{ width: '80%' }}>Red = Wall Collisions<br/>Orange = Dense Foot Traffic / Hesitation</p>
+            <p className="heatmap-legend">
+              {heatmapMode === 'human' ? 'Red = Wall Collisions · Orange = Hesitation' : `Red = Wall Checks · Orange = Cells Explored`}
+            </p>
         </motion.div>
       )}
 
-      {/* 3D Maze */}
+      {/* Maze */}
       <motion.div 
-        className="maze-wrapper 3d-pop"
+        className="maze-wrapper"
         initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         onMouseDown={() => { if(controlMode==='drag') setIsDragging(true); }}
         onMouseMove={triggerDragInteraction}
         onTouchMove={triggerDragInteraction}
-        style={{ touchAction: controlMode === 'drag' ? 'none' : 'auto' }}
+        style={{ touchAction: (controlMode === 'drag' || useDpad) ? 'none' : 'auto' }}
       >
         <div 
           className="maze-grid"
@@ -603,17 +1481,23 @@ export default function App() {
                    if (isPlayerPath && !isStart && !isEnd) classes += ' path glow';
                 }
 
-                // Heatmap logic rendering
-                let heatStyle = {};
-                if (isHeatmapViewing) {
-                   if (isW) {
-                     const hits = heatMap[`w-${r}-${c}`] || 0;
-                     if (hits > 0) heatStyle = { backgroundColor: `rgba(255, 0, 0, ${Math.min(hits * 0.4, 1)})`, borderColor: '#800000', boxShadow: 'none' };
-                   } else {
-                     const pathHits = heatMap[`v-${r}-${c}`] || 0;
-                     if (pathHits > 0) heatStyle = { backgroundColor: `rgba(255, 100, 0, ${Math.min(pathHits * 0.25, 0.9)})`, zIndex: 2 };
-                   }
-                }
+                 // Heatmap logic rendering
+                 let heatStyle = {};
+                 if (isHeatmapViewing) {
+                    if (isW) {
+                      const hits = activeHeatData[`w-${r}-${c}`] || 0;
+                      if (hits > 0) heatStyle = { backgroundColor: `rgba(255, 0, 0, ${Math.min(hits * 0.4, 1)})`, borderColor: '#800000', boxShadow: 'none' };
+                    } else {
+                      const pathHits = activeHeatData[`v-${r}-${c}`] || 0;
+                      if (pathHits > 0) heatStyle = { backgroundColor: `rgba(255, 100, 0, ${Math.min(pathHits * 0.25, 0.9)})`, zIndex: 2 };
+                    }
+                 } else if (gameState.includes('ai') && isAIVisited && !isW && !isStart && !isEnd) {
+                    const order = aiVisited.get(pos);
+                    const total = Math.max(1, aiVisited.size);
+                    const ratio = order / total;
+                    const hue = 240 - (ratio * 240);
+                    heatStyle = { backgroundColor: `hsla(${hue}, 100%, 50%, 0.5)`, borderColor: `hsla(${hue}, 100%, 30%, 0.8)` };
+                 }
 
                 return (
                   <motion.div 
@@ -622,22 +1506,20 @@ export default function App() {
                     className={classes}
                     style={heatStyle}
                     onClick={() => {
-                        if (controlMode === 'tap') handleCellClick(r, c);
+                        if (controlMode === 'tap' && !useDpad) handleCellClick(r, c);
                     }}
-                    whileTap={!isW && controlMode==='tap' ? { scale: 0.8, zIndex: 10 } : {}}
+                    whileTap={!isW && controlMode==='tap' && !useDpad ? { scale: 0.8, zIndex: 10 } : {}}
                   >
-                    {!isHeatmapViewing && isStart && <Flag size={GRID_SIZE > 7 ? 14 : 20} />}
-                    {!isHeatmapViewing && isEnd && <Trophy size={GRID_SIZE > 7 ? 14 : 20} />}
+                    {!isHeatmapViewing && isStart && <Flag size={GRID_SIZE > 7 ? 12 : 18} />}
+                    {!isHeatmapViewing && isEnd && <Trophy size={GRID_SIZE > 7 ? 12 : 18} />}
                     
                     {gameState === 'playing' && playerPosition.r === r && playerPosition.c === c && !isStart && !isEnd && (
-                      <motion.div layoutId="player" className="flex items-center justify-center absolute inset-0 w-full h-full">
-                         <div className="w-4 h-4 bg-black rounded-full" />
-                      </motion.div>
+                      <motion.div layoutId="player" className="player-dot" />
                     )}
                     
                     {gameState.includes('ai') && aiPath[aiPath.length - 1] === pos && !isStart && !isEnd && (
-                      <div className="flex items-center justify-center absolute inset-0 w-full h-full">
-                         <BrainCircuit size={GRID_SIZE > 7 ? 14 : 24} color="#000" />
+                      <div className="ai-head">
+                         <BrainCircuit size={GRID_SIZE > 7 ? 12 : 20} color="#000" />
                       </div>
                     )}
                   </motion.div>
@@ -648,19 +1530,44 @@ export default function App() {
         </div>
       </motion.div>
 
-      {/* Footer Instructions OR Heatmap specific Back button */}
-      <div className="text-center mt-auto pb-4">
+      {/* D-Pad for large grids */}
+      {useDpad && gameState === 'playing' && (
+        <div className="dpad-container">
+          <button className="dpad-btn dpad-up" onClick={() => movePlayer(-1, 0)}>
+            <ChevronUp size={22} strokeWidth={3} />
+          </button>
+          <div className="dpad-row">
+            <button className="dpad-btn dpad-left" onClick={() => movePlayer(0, -1)}>
+              <ChevronLeft size={22} strokeWidth={3} />
+            </button>
+            <div className="dpad-center" />
+            <button className="dpad-btn dpad-right" onClick={() => movePlayer(0, 1)}>
+              <ChevronRight size={22} strokeWidth={3} />
+            </button>
+          </div>
+          <button className="dpad-btn dpad-down" onClick={() => movePlayer(1, 0)}>
+            <ChevronDown size={22} strokeWidth={3} />
+          </button>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="game-footer">
         {isHeatmapViewing ? (
-           <button className="btn btn-dark" style={{ padding: '1rem 2rem' }} onClick={() => setGameState('user-done')}>
-             Close Heatmap & Return
+           <button className="btn btn-dark" style={{ padding: '0.75rem 1.5rem' }} onClick={() => { setGameState('user-done'); setHeatmapMode('human'); }}>
+             Close Heatmap
            </button>
-        ) : gameState === 'playing' ? (
+        ) : gameState === 'playing' && !useDpad ? (
            <p className="text-muted text-sm font-medium">
-             {controlMode === 'drag' ? "Swipe smoothly across the grid!" : "Tap carefully to step."}
+             {friendModeActive ? `${friendRoom.mode === 'global' ? 'Global' : 'Sector'} challenge active` : controlMode === 'drag' ? "Swipe across the grid" : "Tap to step"}
+           </p>
+        ) : gameState === 'playing' && useDpad ? (
+           <p className="text-muted text-sm font-medium">
+             {friendModeActive ? `${friendRoom.mode === 'global' ? 'Global' : 'Sector'} challenge active` : 'Use the D-Pad to navigate'}
            </p>
         ) : (
-           <button className="btn btn-outline" onClick={resetMatch}>
-             <RotateCcw size={20} /> Restart Sector
+           <button className="btn btn-outline" onClick={resetMatch} style={{ padding: '0.6rem 1.5rem' }}>
+             <RotateCcw size={18} /> Restart
            </button>
         )}
       </div>
@@ -672,62 +1579,270 @@ export default function App() {
             <motion.div 
               className="modal-content light"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              style={{ paddingBottom: '2rem' }}
             >
                <h2 className="modal-title">Sector Cleared!</h2>
                
                <div className="score-board">
                   <div className="score-row user-score" style={{ border: '2px solid #000' }}>
                     <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
-                        <span className="font-bold flex-row"><MousePointer2 size={16}/> You (Intuition)</span>
-                        <span className="text-sm font-medium opacity-80">{formatTime(userTimeMs)}</span>
+                        <span className="font-bold flex-row"><MousePointer2 size={16}/> You</span>
+                        <span className="text-sm font-medium opacity-80">
+                          {formatTime(myChallengeResult?.time_ms || userTimeMs)}
+                          {friendModeActive && myChallengeResult ? ` · ${myChallengeResult.path_length} steps` : ''}
+                        </span>
                     </div>
-                    <span className="font-bold">{wrongTries} Faults</span>
+                    <span className="font-bold">{myChallengeResult?.faults ?? wrongTries} Faults</span>
                   </div>
-                  <div className="score-row bg-slate-100">
-                    <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
-                        <span className="flex-row"><BrainCircuit size={16} /> AI (DFS)</span>
-                        <span className="text-sm font-medium text-muted">{(aiStats.dfs.timeMs / 1000).toFixed(1)}s ({aiStats.dfs.ops} cells searched)</span>
-                    </div>
-                    <span>{aiStats.dfs.faults} Faults</span>
-                  </div>
-                  <div className="score-row bg-slate-100">
-                    <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
-                        <span className="flex-row"><Activity size={16} /> AI (BFS)</span>
-                        <span className="text-sm font-medium text-muted">{(aiStats.bfs.timeMs / 1000).toFixed(1)}s ({aiStats.bfs.ops} cells searched)</span>
-                    </div>
-                    <span>{aiStats.bfs.faults} Faults</span>
-                  </div>
-                  <div className="score-row bg-slate-100">
-                    <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
-                        <span className="flex-row font-bold text-blue-600"><Zap size={16} /> AI (A* Genius)</span>
-                        <span className="text-sm font-medium text-muted">{(aiStats.astar.timeMs / 1000).toFixed(1)}s ({aiStats.astar.ops} cells searched)</span>
-                    </div>
-                    <span className="font-bold">{aiStats.astar.faults} Faults</span>
-                  </div>
+                  {friendModeActive ? (
+                    <>
+                      <div className="score-row bg-slate-100">
+                        <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
+                          <span className="flex-row font-bold"><Trophy size={16} /> Result</span>
+                          <span className="text-sm font-medium text-muted">
+                            Room {friendRoom.room_code} · {friendRoom.mode === 'global' ? 'Global Run' : 'This Sector'}
+                          </span>
+                        </div>
+                        <span className="font-bold">
+                          {roomClosed ? 'Final' : !challengeWinner ? 'Syncing' : challengeWinner.player_id === playerId ? 'You lead' : `${challengeWinner.player_label} leads`}
+                        </span>
+                      </div>
+                      <div className="score-section-title">This Sector</div>
+                      {challengeScorePlayers.map((player) => {
+                        const result = currentChallengeResults.find((item) => item.player_id === player.player_id);
+                        const isWinner = result && challengeWinner?.player_id === player.player_id;
+                        return (
+                          <div key={player.player_id} className={`score-row bg-slate-100 ${result ? '' : 'waiting'} ${isWinner ? 'winner' : ''}`}>
+                            <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
+                              <span className="flex-row">
+                                {isWinner ? <Trophy size={16} /> : <Share2 size={16} />}
+                                {player.player_id === playerId ? `${player.player_label} (You)` : player.player_label}
+                              </span>
+                              <span className="text-sm font-medium text-muted">
+                                {result ? `${formatTime(result.time_ms)} · ${result.path_length} steps` : 'Waiting for clear'}
+                              </span>
+                            </div>
+                            <span>{result ? `${result.faults} Faults` : 'Live'}</span>
+                          </div>
+                        );
+                      })}
+                      {activeRoomNotice && (
+                        <div className={`room-inbox-message room-inbox-message--inline ${roomNotice.tone}`}>
+                          <span className="room-inbox-kicker">Room Inbox</span>
+                          <strong>{roomNotice.title}</strong>
+                          <p>{roomNotice.body}</p>
+                          {roomExitCountdown !== null && <span className="room-countdown">{roomExitCountdown}s to solo mode</span>}
+                        </div>
+                      )}
+                      <div className="score-section-title">{roomClosed ? 'Final Overall' : 'Overall Run'}</div>
+                      <div className="overall-bars">
+                        {overallChallengeResults.map((player, index) => {
+                          const barWidth = `${Math.max(8, (player.sectors / maxOverallSectors) * 100)}%`;
+                          return (
+                            <div key={player.player_id} className={`overall-bar-row ${index === 0 && player.sectors ? 'winner' : ''}`}>
+                              <div className="overall-bar-top">
+                                <span>#{index + 1} {player.player_id === playerId ? `${player.player_label} (You)` : player.player_label}</span>
+                                <strong>{player.sectors} sector{player.sectors === 1 ? '' : 's'}</strong>
+                              </div>
+                              <div className="overall-bar-track">
+                                <span className="overall-bar-fill" style={{ width: barWidth }} />
+                              </div>
+                              <div className="overall-bar-meta">
+                                <span>{player.sectors ? formatTime(player.timeMs) : 'No clears yet'}</span>
+                                <span>{player.faults} faults · {player.pathLength} steps</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="challenge-message">{challengeStatusText}</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="score-row bg-slate-100">
+                        <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
+                            <span className="flex-row"><BrainCircuit size={16} /> DFS</span>
+                            <span className="text-sm font-medium text-muted">{(aiStats.dfs.timeMs / 1000).toFixed(1)}s · {aiStats.dfs.ops} ops</span>
+                        </div>
+                        <span>{aiStats.dfs.faults} Faults</span>
+                      </div>
+                      <div className="score-row bg-slate-100">
+                        <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
+                            <span className="flex-row"><Activity size={16} /> BFS</span>
+                            <span className="text-sm font-medium text-muted">{(aiStats.bfs.timeMs / 1000).toFixed(1)}s · {aiStats.bfs.ops} ops</span>
+                        </div>
+                        <span>{aiStats.bfs.faults} Faults</span>
+                      </div>
+                      <div className="score-row bg-slate-100">
+                        <div className="flex-col" style={{ gap: '0.1rem', alignItems: 'flex-start' }}>
+                            <span className="flex-row font-bold text-blue-600"><Zap size={16} /> A*</span>
+                            <span className="text-sm font-medium text-muted">{(aiStats.astar.timeMs / 1000).toFixed(1)}s · {aiStats.astar.ops} ops</span>
+                        </div>
+                        <span className="font-bold">{aiStats.astar.faults} Faults</span>
+                      </div>
+                    </>
+                  )}
                </div>
 
-               <div className="flex gap-2" style={{ overflowX: 'auto', paddingBottom: '5px', marginTop: '1rem' }}>
-                 <button className="btn btn-dark flex-1" onClick={() => watchAI('DFS')} style={{padding: '0.75rem', fontSize: '0.9rem', minWidth: '70px'}}>
-                   DFS
-                 </button>
-                 <button className="btn btn-dark flex-1" onClick={() => watchAI('BFS')} style={{padding: '0.75rem', fontSize: '0.9rem', minWidth: '70px'}}>
-                   BFS
-                 </button>
-                 <button className="btn btn-dark flex-1" onClick={() => watchAI('A*')} style={{background: '#2563EB', padding: '0.75rem', fontSize: '0.9rem', minWidth: '70px'}}>
-                   A*
-                 </button>
+               <div className="modal-actions">
+                 {!friendModeActive && (
+                   <div className="flex gap-2">
+                     <button className="btn btn-dark flex-1" onClick={() => watchAI('DFS')} style={{padding: '0.65rem', fontSize: '0.85rem'}}>
+                       DFS
+                     </button>
+                     <button className="btn btn-dark flex-1" onClick={() => watchAI('BFS')} style={{padding: '0.65rem', fontSize: '0.85rem'}}>
+                       BFS
+                     </button>
+                     <button className="btn btn-dark flex-1" onClick={() => watchAI('A*')} style={{background: '#2563EB', padding: '0.65rem', fontSize: '0.85rem'}}>
+                       A*
+                     </button>
+                   </div>
+                 )}
+                 
+                 <div className="flex gap-2">
+                   {!friendModeActive && (
+                     <button className="btn btn-outline flex-1" onClick={() => setGameState('heatmap')} style={{ padding: '0.7rem 0' }}>
+                       <Flame size={18} color="var(--danger)" /> Heatmap
+                     </button>
+                   )}
+                   <button className="btn btn-primary flex-1" onClick={nextLevel} style={{border: '2px solid #000', padding: '0.7rem 0' }}>
+                     Next <ChevronRight size={18} />
+                   </button>
+                 </div>
                </div>
                
-               <div className="flex gap-2 mt-2">
-                 <button className="btn btn-outline flex-1" onClick={() => setGameState('heatmap')} style={{ padding: '0.9rem 0' }}>
-                   <Flame size={20} color="var(--danger)" /> Heatmap
-                 </button>
-                 <button className="btn btn-primary flex-1" onClick={nextLevel} style={{border: '2px solid #000', padding: '0.9rem 0' }}>
-                   Next Sector <ChevronRight size={20} />
-                 </button>
-               </div>
-               
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {challengeModalOpen && (
+          <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div
+              className="modal-content light challenge-sheet"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            >
+              <div className="challenge-header">
+                <div>
+                  <h2 className="modal-title">Friend Challenge</h2>
+                  <p className="challenge-copy">Name up, share a code, and race the same maze with up to 4 players.</p>
+                </div>
+                <button className="challenge-close" type="button" onClick={() => setChallengeModalOpen(false)}>×</button>
+              </div>
+
+              <label className="challenge-name-row">
+                <span>Your name</span>
+                <input
+                  value={playerName}
+                  onChange={(event) => setPlayerName(event.target.value.slice(0, 16))}
+                  onBlur={savePlayerName}
+                  placeholder="PLAYER NAME"
+                  maxLength={16}
+                  aria-label="Player name"
+                />
+              </label>
+
+              {friendModeActive && (
+                <div className="challenge-active-card">
+                  <span className="challenge-kicker">{roomClosed ? 'Closed room' : 'Active room'}</span>
+                  <strong>{friendRoom.room_code}</strong>
+                  <p>{friendRoom.mode === 'global' ? 'Global run stays synced across future sectors.' : 'This code is locked to the current sector.'}</p>
+                  <div className="challenge-roster" aria-label="Room players">
+                    <span className="challenge-kicker">Players {activePlayers.length}/{friendRoom.max_players || 4}</span>
+                    <div className="challenge-player-list">
+                      {(friendPlayers.length ? friendPlayers : [{ player_id: playerId, player_label: sanitizePlayerName(playerName), role: 'host', active: true }]).map((player) => (
+                        <span key={player.player_id} className={`challenge-player-pill ${player.active ? '' : 'inactive'}`}>
+                          {player.player_id === playerId ? `${player.player_label} (You)` : player.player_label}
+                          {player.role === 'host' ? ' · Host' : ''}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {overallChallengeResults.length > 0 && (
+                    <div className="challenge-mini-board">
+                      <span className="challenge-kicker">{roomClosed ? 'Final overall' : 'Overall so far'}</span>
+                      {overallChallengeResults.slice(0, 4).map((player, index) => (
+                        <div key={player.player_id} className="challenge-mini-row">
+                          <span>#{index + 1} {player.player_id === playerId ? `${player.player_label} (You)` : player.player_label}</span>
+                          <span>{player.sectors} · {formatTime(player.timeMs)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button className="btn btn-outline" type="button" onClick={leaveChallenge}>
+                    {roomClosed || friendRoom.created_by_player_id !== playerId ? 'Exit Friend Mode' : 'Close Room'}
+                  </button>
+                </div>
+              )}
+
+              <div className="challenge-options">
+                <button
+                  type="button"
+                  className={`challenge-option ${challengeMode === 'sector' ? 'active' : ''}`}
+                  onClick={() => setChallengeMode('sector')}
+                >
+                  <strong>This Sector</strong>
+                  <span>Race only {levelData.name}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`challenge-option ${challengeMode === 'global' ? 'active' : ''}`}
+                  onClick={() => setChallengeMode('global')}
+                >
+                  <strong>Global Run</strong>
+                  <span>Same maze seed until exit</span>
+                </button>
+              </div>
+
+              <button className="btn btn-dark" type="button" onClick={createChallenge} disabled={challengeLoading}>
+                <Share2 size={18} /> {challengeLoading ? 'Working...' : 'Create Code'}
+              </button>
+
+              <div className="join-code-row">
+                <input
+                  value={joinCode}
+                  onChange={(event) => setJoinCode(normalizeRoomCode(event.target.value))}
+                  placeholder="ENTER CODE"
+                  maxLength={6}
+                  aria-label="Challenge code"
+                />
+                <button className="btn btn-primary" type="button" onClick={joinChallenge} disabled={challengeLoading}>
+                  Join
+                </button>
+              </div>
+
+              {friendRoom?.room_code && (
+                <div className="challenge-code-display">
+                  <span>Share this code</span>
+                  <strong>{friendRoom.room_code}</strong>
+                </div>
+              )}
+
+              {challengeMessage && <p className="challenge-message">{challengeMessage}</p>}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {quitPromptOpen && (
+          <motion.div className="modal-overlay quit-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div
+              className="quit-card"
+              initial={{ y: 24, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 24, opacity: 0, scale: 0.96 }}
+            >
+              <span className="room-inbox-kicker">Exit Check</span>
+              <h2>Quit Algo Arcade?</h2>
+              <p>Press back again or choose Quit to leave the app. Stay keeps you here.</p>
+              <div className="quit-actions">
+                <button className="btn btn-outline flex-1" type="button" onClick={() => setQuitPromptOpen(false)}>Stay</button>
+                <button className="btn btn-dark flex-1" type="button" onClick={forceQuitApp}>Quit</button>
+              </div>
             </motion.div>
           </motion.div>
         )}

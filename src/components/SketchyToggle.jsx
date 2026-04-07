@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
+const MotionPath = motion.path;
+
 export const SketchyToggle = ({ options, activeOption, onChange }) => {
     return (
         <div style={{ display: 'flex', gap: '2rem', justifyContent: 'center', padding: '0.25rem', background: 'transparent' }}>
@@ -31,7 +33,7 @@ export const SketchyToggle = ({ options, activeOption, onChange }) => {
                                 viewBox="0 0 100 100" 
                                 preserveAspectRatio="none"
                             >
-                                <motion.path
+                                <MotionPath
                                     d="M-5,50 Q25,40 50,50 T105,50"
                                     fill="none"
                                     stroke="#fff"
@@ -42,7 +44,7 @@ export const SketchyToggle = ({ options, activeOption, onChange }) => {
                                     transition={{ duration: 0.3, ease: "easeInOut" }}
                                     style={{ opacity: 0.9 }}
                                 />
-                                <motion.path
+                                <MotionPath
                                     d="M-5,85 Q25,95 50,85 T105,85"
                                     fill="none"
                                     stroke="black"

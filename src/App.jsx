@@ -1456,8 +1456,9 @@ export default function App() {
                </div>
              )}
            </div>
-           <h1 className="header-title">
-             <ChromeText>{APP_NAME} <span style={{fontSize: '0.4em', opacity: 0.5}}>v3</span></ChromeText>
+           <h1 className="header-title flex flex-col items-center gap-1">
+             <ChromeText>{APP_NAME}</ChromeText>
+             <span className="text-[10px] text-green-400 opacity-60 font-mono">v1.2 (Sync Polling Active)</span>
            </h1>
          </motion.div>
          <div className="flex flex-row items-center gap-1">

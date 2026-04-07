@@ -1457,7 +1457,7 @@ export default function App() {
              )}
            </div>
            <h1 className="header-title">
-             <ChromeText>{APP_NAME}</ChromeText>
+             <ChromeText>{APP_NAME} <span style={{fontSize: '0.4em', opacity: 0.5}}>v3</span></ChromeText>
            </h1>
          </motion.div>
          <div className="flex flex-row items-center gap-1">
